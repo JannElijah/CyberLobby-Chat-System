@@ -9,7 +9,8 @@ using System.Collections.Generic;
 public class GlobalNetworkChatManager : NetworkBehaviour
 {
     public TMP_InputField ChatInputField;
-    public TextMeshProUGUI ChatDisplayAreaBox;
+    public GameObject MessagePrefab;
+    public Transform ChatContentParent;
     public Button SendTextButton;
     public ScrollRect ChatScrollRect;
 
@@ -20,7 +21,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     
     [Header("Chat Settings")]
     public int maxChatLines = 50;
-    private Queue<string> chatHistory = new Queue<string>();
+    private Queue<GameObject> chatHistory = new Queue<GameObject>();
 
     private string[] bannedWords = { "spam", "hack", "cheat", "fuck", "bitch", "dumbass", "shit", "asshole" , "nigga", "faggot", "nazi", "kys", "kill yourself", "nigger", "penis", "vagina", "cock", "pussy", "fuckyou", "motherfucker", "Retard", "Retarded", "fucker", "hell" };
     
@@ -32,7 +33,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         if (IsClient)
         {
             playerName = "User_" + UnityEngine.Random.Range(100, 1000).ToString();
-            AddMessageToDisplay($"<color=#00AAFF>[System]</color> You have been assigned the handle: {playerName}");
+            AddMessageToDisplay("[System]", $"You have been assigned the handle: {playerName}", "#00AAFF");
             DeclareHandleServerRpc(playerName);
         }
 
@@ -55,16 +56,14 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     {
         ulong clientId = rpcParams.Receive.SenderClientId;
         clientHandles[clientId] = handle;
-        string sysMessage = $"<color=yellow>[System] {handle} has connected.</color>";
-        BroadcastMessageClientRpc(sysMessage);
+        BroadcastMessageClientRpc("[System]", $"{handle} has connected.", "yellow", ulong.MaxValue);
     }
 
     private void OnClientDisconnected(ulong clientId)
     {
         string handle = clientHandles.TryGetValue(clientId, out string h) ? h : $"Client {clientId}";
         clientHandles.Remove(clientId);
-        string sysMessage = $"<color=yellow>[System] {handle} has disconnected.</color>";
-        BroadcastMessageClientRpc(sysMessage);
+        BroadcastMessageClientRpc("[System]", $"{handle} has disconnected.", "yellow", ulong.MaxValue);
     }
 
     void Start()
@@ -90,7 +89,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         if (Time.time - lastSendTime < messageCooldown)
         {
             float remainingTime = messageCooldown - (Time.time - lastSendTime);
-            AddMessageToDisplay($"<color=red>[System] Spam prevention: Please wait {remainingTime:F1}s before sending another message.</color>");
+            AddMessageToDisplay("[System]", $"Spam prevention: Please wait {remainingTime:F1}s before sending another message.", "red");
             return; 
         }
 
@@ -116,15 +115,14 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         bool isCommand = false;
         if (commandText.StartsWith("/help"))
         {
-            AddMessageToDisplay("<color=#00FF00>[System]</color> Available commands: /ping, /nick <name>");
+            AddMessageToDisplay("[System]", "Available commands: /ping, /nick <name>", "#00FF00");
             isCommand = true;
         }
         else if (commandText.StartsWith("/ping"))
         {
             float frameTimeMs = Time.deltaTime * 1000f;
             ulong rtt = NetworkManager.Singleton.NetworkConfig.NetworkTransport.GetCurrentRtt(NetworkManager.ServerClientId);
-            string sysMessage = $"<color=#00FF00>[System]</color> Frame Time: {frameTimeMs:F2}ms | RTT: {rtt}ms";
-            AddMessageToDisplay(sysMessage);
+            AddMessageToDisplay("[System]", $"Frame Time: {frameTimeMs:F2}ms | RTT: {rtt}ms", "#00FF00");
             isCommand = true;
         }
         else if (commandText.StartsWith("/nick "))
@@ -133,7 +131,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             if (!string.IsNullOrEmpty(newName))
             {
                 playerName = newName;
-                AddMessageToDisplay($"<color=#00FF00>[System]</color> Handle changed to: {playerName}");
+                AddMessageToDisplay("[System]", $"Handle changed to: {playerName}", "#00FF00");
             }
             isCommand = true;
         }
@@ -153,10 +151,9 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         ulong senderId = rpcParams.Receive.SenderClientId;
         
         string cleanMessage = FilterMessage(message);
-        string playerColor = (senderId == 0) ? "red" : "#00AAFF"; 
+        string playerColorHex = (senderId == 0) ? "red" : "#00AAFF"; 
         
-        string formattedMessage = $"<color={playerColor}>{senderName}:</color> {cleanMessage}";
-        BroadcastMessageClientRpc(formattedMessage);
+        BroadcastMessageClientRpc(senderName, cleanMessage, playerColorHex, senderId);
     }
 
     private string FilterMessage(string input)
@@ -178,19 +175,38 @@ public class GlobalNetworkChatManager : NetworkBehaviour
 
     // UPDATED: New Netcode syntax for ClientRpc
     [Rpc(SendTo.Everyone)]
-    public void BroadcastMessageClientRpc(string formattedMessage)
+    public void BroadcastMessageClientRpc(string senderName, string messageContent, string senderColorHex, ulong originalSenderId)
     {
-        AddMessageToDisplay(formattedMessage);
+        bool isLocal = (originalSenderId == NetworkManager.Singleton.LocalClientId);
+        
+        // Override the color so the player you control is always Blue, and others are always Red
+        if (senderName != "[System]")
+        {
+            senderColorHex = isLocal ? "#00AAFF" : "red";
+        }
+
+        AddMessageToDisplay(senderName, messageContent, senderColorHex, isLocal);
     }
 
-    private void AddMessageToDisplay(string message)
+    private void AddMessageToDisplay(string senderName, string messageContent, string senderColorHex, bool isLocalPlayer = false)
     {
-        chatHistory.Enqueue(message);
+        if (MessagePrefab == null || ChatContentParent == null) return;
+
+        GameObject newMsgObj = Instantiate(MessagePrefab, ChatContentParent);
+        ChatMessageUI msgUI = newMsgObj.GetComponent<ChatMessageUI>();
+        
+        if (msgUI != null)
+        {
+            msgUI.SetupMessage(senderName, messageContent, senderColorHex, isLocalPlayer);
+        }
+
+        chatHistory.Enqueue(newMsgObj);
         if (chatHistory.Count > maxChatLines)
         {
-            chatHistory.Dequeue();
+            GameObject oldMsg = chatHistory.Dequeue();
+            Destroy(oldMsg);
         }
-        ChatDisplayAreaBox.text = string.Join("\n", chatHistory);
+
         StartCoroutine(ForceScrollDown());
     }
 

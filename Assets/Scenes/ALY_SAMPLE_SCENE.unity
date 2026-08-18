@@ -850,7 +850,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 3, y: 11}
-  m_SizeDelta: {x: 20, y: -17}
+  m_SizeDelta: {x: 10, y: -17}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &449804138
 MonoBehaviour:
@@ -914,7 +914,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.3584906, g: 0.31283376, b: 0.31283376, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1412,7 +1412,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GlobalNetworkChatManager
   ShowTopMostFoldoutHeaderGroup: 1
   ChatInputField: {fileID: 215100962}
-  ChatDisplayAreaBox: {fileID: 124905793}
+  MessagePrefab: {fileID: 184446858666928821, guid: 1fadec223b0ac18419b38d79e19d20aa, type: 3}
+  ChatContentParent: {fileID: 752389181}
   SendTextButton: {fileID: 0}
   ChatScrollRect: {fileID: 773344104}
   messageCooldown: 1.5
@@ -1989,7 +1990,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.09838911, g: 0.6320754, b: 0.36618885, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
