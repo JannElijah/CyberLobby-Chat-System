@@ -59,6 +59,14 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         BroadcastMessageClientRpc("[System]", $"{handle} has connected.", "yellow", ulong.MaxValue);
     }
 
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    public void ChangeHandleServerRpc(string oldName, string newName, RpcParams rpcParams = default)
+    {
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        clientHandles[clientId] = newName;
+        BroadcastMessageClientRpc("[System]", $"{oldName} changed their nickname to {newName}", "yellow", ulong.MaxValue);
+    }
+
     private void OnClientDisconnected(ulong clientId)
     {
         string handle = clientHandles.TryGetValue(clientId, out string h) ? h : $"Client {clientId}";
@@ -86,6 +94,12 @@ public class GlobalNetworkChatManager : NetworkBehaviour
 
     void OnSendButtonClicked()
     {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsClient || !NetworkManager.Singleton.IsConnectedClient)
+        {
+            AddMessageToDisplay("[System]", "Error: You are disconnected from the server.", "red");
+            return;
+        }
+
         if (Time.time - lastSendTime < messageCooldown)
         {
             float remainingTime = messageCooldown - (Time.time - lastSendTime);
@@ -130,13 +144,28 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             string newName = commandText.Substring(6).Trim();
             if (!string.IsNullOrEmpty(newName))
             {
+                string oldName = playerName;
                 playerName = newName;
-                AddMessageToDisplay("[System]", $"Handle changed to: {playerName}", "#00FF00");
+                ChangeHandleServerRpc(oldName, newName);
             }
+            isCommand = true;
+        }
+        else if (commandText.StartsWith("/clear"))
+        {
+            ClearChatHistory();
             isCommand = true;
         }
 
         return isCommand;
+    }
+
+    private void ClearChatHistory()
+    {
+        while (chatHistory.Count > 0)
+        {
+            GameObject oldMsg = chatHistory.Dequeue();
+            if (oldMsg != null) Destroy(oldMsg);
+        }
     }
 
     // UPDATED: New Netcode syntax for ServerRpc
@@ -179,10 +208,10 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     {
         bool isLocal = (originalSenderId == NetworkManager.Singleton.LocalClientId);
         
-        // Override the color so the player you control is always Blue, and others are always Red
+        // ASSIGNMENT RUBRIC: Force Neon Green text for all players
         if (senderName != "[System]")
         {
-            senderColorHex = isLocal ? "#00AAFF" : "red";
+            senderColorHex = "#00FF66"; 
         }
 
         AddMessageToDisplay(senderName, messageContent, senderColorHex, isLocal);

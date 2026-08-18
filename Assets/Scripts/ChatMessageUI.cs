@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-
+using System.Collections;
 public class ChatMessageUI : MonoBehaviour
 {
     public TMP_Text PlayerNameText;
@@ -56,5 +56,39 @@ public class ChatMessageUI : MonoBehaviour
                 }
             }
         }
+    }
+
+    void Start()
+    {
+        StartCoroutine(PopInAnimation());
+    }
+
+    private IEnumerator PopInAnimation()
+    {
+        float duration = 0.35f;
+        float time = 0f;
+        
+        transform.localScale = Vector3.zero;
+
+        // "Ease Out Back" formula variables for a bouncy pop
+        float c1 = 1.70158f;
+        float c3 = c1 + 1f;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            float t = time / duration;
+            
+            // Ease out back math
+            float curve = 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+            
+            // Prevent going into negative scale
+            if (curve < 0) curve = 0;
+
+            transform.localScale = new Vector3(curve, curve, curve);
+            yield return null;
+        }
+        
+        transform.localScale = Vector3.one;
     }
 }
