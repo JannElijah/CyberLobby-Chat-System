@@ -28,11 +28,29 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     private string playerName;
     private Dictionary<ulong, string> clientHandles = new Dictionary<ulong, string>();
 
+    // Command History
+    private List<string> sentHistory = new List<string>();
+    private int historyIndex = -1;
+
+    [Header("Advanced Features")]
+    public TMP_Text TypingIndicatorText;
+    private Dictionary<ulong, string> clientColors = new Dictionary<ulong, string>();
+    private string[] neonColors = { "#00FFFF", "#FFFF00", "#FF6600", "#00FF66" };
+    private Dictionary<ulong, float> typingClients = new Dictionary<ulong, float>();
+    private bool isTypingLocally = false;
+
     public override void OnNetworkSpawn()
     {
         if (IsClient)
         {
-            playerName = "User_" + UnityEngine.Random.Range(100, 1000).ToString();
+            if (IsServer)
+            {
+                playerName = "[ROOT] Admin";
+            }
+            else
+            {
+                playerName = "User_" + UnityEngine.Random.Range(100, 1000).ToString();
+            }
             AddMessageToDisplay("[System]", $"You have been assigned the handle: {playerName}", "#00AAFF");
             DeclareHandleServerRpc(playerName);
         }
@@ -56,6 +74,16 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     {
         ulong clientId = rpcParams.Receive.SenderClientId;
         clientHandles[clientId] = handle;
+
+        if (clientId == NetworkManager.ServerClientId)
+        {
+            clientColors[clientId] = "#FF0033"; // Red for Admin
+        }
+        else
+        {
+            clientColors[clientId] = neonColors[UnityEngine.Random.Range(0, neonColors.Length)];
+        }
+
         BroadcastMessageClientRpc("[System]", $"{handle} has connected.", "yellow", ulong.MaxValue);
     }
 
@@ -71,6 +99,9 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     {
         string handle = clientHandles.TryGetValue(clientId, out string h) ? h : $"Client {clientId}";
         clientHandles.Remove(clientId);
+        clientColors.Remove(clientId);
+        typingClients.Remove(clientId);
+        UpdateTypingUI();
         BroadcastMessageClientRpc("[System]", $"{handle} has disconnected.", "yellow", ulong.MaxValue);
     }
 
@@ -84,6 +115,61 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         {
             ChatInputField.characterLimit = maxMessageLength;
             ChatInputField.onSubmit.AddListener(OnChatSubmit);
+            ChatInputField.onValueChanged.AddListener(OnInputValueChanged);
+        }
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+        {
+            if (ChatInputField != null && !ChatInputField.isFocused)
+            {
+                ChatInputField.ActivateInputField();
+            }
+        }
+
+        if (ChatInputField != null && ChatInputField.isFocused)
+        {
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                if (sentHistory.Count > 0)
+                {
+                    historyIndex++;
+                    if (historyIndex >= sentHistory.Count) historyIndex = sentHistory.Count - 1;
+                    ChatInputField.text = sentHistory[sentHistory.Count - 1 - historyIndex];
+                    ChatInputField.caretPosition = ChatInputField.text.Length;
+                }
+            }
+            else if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                if (sentHistory.Count > 0)
+                {
+                    historyIndex--;
+                    if (historyIndex < 0) 
+                    {
+                        historyIndex = -1;
+                        ChatInputField.text = "";
+                    }
+                    else 
+                    {
+                        ChatInputField.text = sentHistory[sentHistory.Count - 1 - historyIndex];
+                        ChatInputField.caretPosition = ChatInputField.text.Length;
+                    }
+                }
+            }
+        }
+    }
+
+    private void OnInputValueChanged(string text)
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsClient || !NetworkManager.Singleton.IsConnectedClient) return;
+
+        bool typingNow = text.Length > 0 && !text.StartsWith("/");
+        if (typingNow != isTypingLocally)
+        {
+            isTypingLocally = typingNow;
+            SetTypingStateServerRpc(typingNow);
         }
     }
 
@@ -114,11 +200,19 @@ public class GlobalNetworkChatManager : NetworkBehaviour
 
             if (ProcessLocalCommand(inputText))
             {
+                sentHistory.Add(inputText);
+                historyIndex = -1;
                 ChatInputField.ActivateInputField();
+                isTypingLocally = false;
+                SetTypingStateServerRpc(false);
                 return;
             }
 
+            sentHistory.Add(inputText);
+            historyIndex = -1;
             lastSendTime = Time.time; 
+            isTypingLocally = false;
+            SetTypingStateServerRpc(false);
             SubmitMessageServerRpc(inputText, playerName);
             ChatInputField.ActivateInputField();
         }
@@ -127,19 +221,21 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     private bool ProcessLocalCommand(string commandText)
     {
         bool isCommand = false;
-        if (commandText.StartsWith("/help"))
+        string lowerCmd = commandText.ToLower();
+        
+        if (lowerCmd.StartsWith("/help"))
         {
-            AddMessageToDisplay("[System]", "Available commands: /ping, /nick <name>", "#00FF00");
+            AddMessageToDisplay("[System]", "Available commands: /ping, /nick <name>, /players, /w <name> <message>, /kick <name>", "#00FF00");
             isCommand = true;
         }
-        else if (commandText.StartsWith("/ping"))
+        else if (lowerCmd.StartsWith("/ping"))
         {
             float frameTimeMs = Time.deltaTime * 1000f;
             ulong rtt = NetworkManager.Singleton.NetworkConfig.NetworkTransport.GetCurrentRtt(NetworkManager.ServerClientId);
             AddMessageToDisplay("[System]", $"Frame Time: {frameTimeMs:F2}ms | RTT: {rtt}ms", "#00FF00");
             isCommand = true;
         }
-        else if (commandText.StartsWith("/nick "))
+        else if (lowerCmd.StartsWith("/nick "))
         {
             string newName = commandText.Substring(6).Trim();
             if (!string.IsNullOrEmpty(newName))
@@ -150,9 +246,10 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             }
             isCommand = true;
         }
-        else if (commandText.StartsWith("/clear"))
+        else if (lowerCmd.StartsWith("/clear"))
         {
             ClearChatHistory();
+            AddMessageToDisplay("[System]", "SYSTEM REBOOT INITIATED...\nMEMORY FLUSHED.\nWELCOME TO NEON-OS.", "#00FF66");
             isCommand = true;
         }
 
@@ -168,7 +265,48 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         }
     }
 
-    // UPDATED: New Netcode syntax for ServerRpc
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    public void SetTypingStateServerRpc(bool isTyping, RpcParams rpcParams = default)
+    {
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        UpdateTypingClientRpc(clientId, isTyping);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    public void UpdateTypingClientRpc(ulong clientId, bool isTyping)
+    {
+        if (isTyping)
+        {
+            typingClients[clientId] = Time.time;
+        }
+        else
+        {
+            typingClients.Remove(clientId);
+        }
+        UpdateTypingUI();
+    }
+
+    private void UpdateTypingUI()
+    {
+        if (TypingIndicatorText == null) return;
+        
+        List<string> typingNames = new List<string>();
+        foreach (var id in typingClients.Keys)
+        {
+            if (id != NetworkManager.LocalClientId && clientHandles.ContainsKey(id))
+            {
+                typingNames.Add(clientHandles[id]);
+            }
+        }
+
+        if (typingNames.Count == 1)
+            TypingIndicatorText.text = $"{typingNames[0]} is typing...";
+        else if (typingNames.Count > 1)
+            TypingIndicatorText.text = "Multiple people are typing...";
+        else
+            TypingIndicatorText.text = "";
+    }
+
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void SubmitMessageServerRpc(string message, string senderName, RpcParams rpcParams = default)
     {
@@ -178,43 +316,145 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         }
 
         ulong senderId = rpcParams.Receive.SenderClientId;
+
+        // SERVER-SIDE COMMAND PARSING
+        string lowerMsg = message.ToLower();
         
-        string cleanMessage = FilterMessage(message);
-        string playerColorHex = (senderId == 0) ? "red" : "#00AAFF"; 
+        if (lowerMsg.StartsWith("/kick "))
+        {
+            if (senderId != NetworkManager.ServerClientId)
+            {
+                TargetedMessageClientRpc("[System]", "Access Denied: Only [ROOT] Admin can use /kick.", "red", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+                return;
+            }
+
+            string afterCommand = message.Substring(6).Trim();
+            ulong? targetId = null;
+            string targetName = "";
+
+            foreach(var kvp in clientHandles)
+            {
+                string handle = kvp.Value;
+                string cleanHandle = handle.Replace("[ROOT] ", ""); // Allow matching without [ROOT] prefix
+                
+                if (afterCommand.Equals(handle, System.StringComparison.OrdinalIgnoreCase) ||
+                    afterCommand.Equals(cleanHandle, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    targetId = kvp.Key;
+                    targetName = handle;
+                    break;
+                }
+            }
+
+            if (targetId.HasValue && targetId.Value != NetworkManager.ServerClientId)
+            {
+                BroadcastMessageClientRpc("[System]", $"[ROOT] Admin has forcefully kicked {targetName} from the server.", "red", ulong.MaxValue);
+                NetworkManager.Singleton.DisconnectClient(targetId.Value);
+            }
+            else
+            {
+                TargetedMessageClientRpc("[System]", $"Player '{afterCommand}' not found or cannot be kicked.", "red", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+            }
+            return;
+        }
+        else if (lowerMsg.StartsWith("/players"))
+        {
+            string playerList = "Connected players: ";
+            foreach(var handle in clientHandles.Values) {
+                playerList += handle + ", ";
+            }
+            playerList = playerList.TrimEnd(',', ' ');
+            
+            TargetedMessageClientRpc("[System]", playerList, "#00AAFF", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+            return;
+        }
+        else if (lowerMsg.StartsWith("/w "))
+        {
+            string afterCommand = message.Substring(3).Trim();
+            ulong? targetId = null;
+            string targetName = "";
+            string whisperMsg = "";
+
+            foreach(var kvp in clientHandles)
+            {
+                string handle = kvp.Value;
+                string cleanHandle = handle.Replace("[ROOT] ", ""); 
+
+                // Check against full handle
+                if (afterCommand.StartsWith(handle, System.StringComparison.OrdinalIgnoreCase) && 
+                   (afterCommand.Length == handle.Length || afterCommand[handle.Length] == ' '))
+                {
+                    targetId = kvp.Key;
+                    targetName = handle;
+                    whisperMsg = afterCommand.Substring(handle.Length).Trim();
+                    break;
+                }
+                // Check against handle without [ROOT] prefix
+                else if (afterCommand.StartsWith(cleanHandle, System.StringComparison.OrdinalIgnoreCase) &&
+                        (afterCommand.Length == cleanHandle.Length || afterCommand[cleanHandle.Length] == ' '))
+                {
+                    targetId = kvp.Key;
+                    targetName = handle;
+                    whisperMsg = afterCommand.Substring(cleanHandle.Length).Trim();
+                    break;
+                }
+            }
+
+            if (targetId.HasValue)
+            {
+                if (string.IsNullOrWhiteSpace(whisperMsg))
+                {
+                    TargetedMessageClientRpc("[System]", "Usage: /w <name> <message>", "red", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+                    return;
+                }
+
+                string cleanMessage = FilterMessage(whisperMsg);
+                
+                TargetedMessageClientRpc(senderName + " (Whisper)", cleanMessage, "#FF00FF", RpcTarget.Single(targetId.Value, RpcTargetUse.Temp));
+
+                if (targetId.Value != senderId)
+                {
+                    TargetedMessageClientRpc("To " + targetName, cleanMessage, "#FF00FF", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+                }
+            }
+            else
+            {
+                string failedName = afterCommand.Split(' ')[0];
+                TargetedMessageClientRpc("[System]", $"Player '{failedName}' not found.", "red", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+            }
+            return;
+        }
         
-        BroadcastMessageClientRpc(senderName, cleanMessage, playerColorHex, senderId);
+        string cleanBroadcast = FilterMessage(message);
+        string playerColorHex = clientColors.ContainsKey(senderId) ? clientColors[senderId] : "#00FF66"; 
+        
+        BroadcastMessageClientRpc(senderName, cleanBroadcast, playerColorHex, senderId);
     }
 
     private string FilterMessage(string input)
     {
-        // 1. Strip Rich Text (to prevent UI injection attacks)
         string output = Regex.Replace(input, @"<.*?>", string.Empty);
 
-        // 2. Profanity Filter
         foreach (string word in bannedWords)
         {
-            // Use word boundaries \b to avoid accidentally censoring parts of normal words
             string pattern = $@"\b{Regex.Escape(word)}\b";
-            
-            // Replace the matched word with asterisks of the exact same length
             output = Regex.Replace(output, pattern, m => new string('*', m.Length), RegexOptions.IgnoreCase);
         }
         return output;
     }
 
-    // UPDATED: New Netcode syntax for ClientRpc
     [Rpc(SendTo.Everyone)]
     public void BroadcastMessageClientRpc(string senderName, string messageContent, string senderColorHex, ulong originalSenderId)
     {
         bool isLocal = (originalSenderId == NetworkManager.Singleton.LocalClientId);
         
-        // ASSIGNMENT RUBRIC: Force Neon Green text for all players
-        if (senderName != "[System]")
-        {
-            senderColorHex = "#00FF66"; 
-        }
-
         AddMessageToDisplay(senderName, messageContent, senderColorHex, isLocal);
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    public void TargetedMessageClientRpc(string senderName, string messageContent, string senderColorHex, RpcParams rpcParams = default)
+    {
+        AddMessageToDisplay(senderName, messageContent, senderColorHex, false);
     }
 
     private void AddMessageToDisplay(string senderName, string messageContent, string senderColorHex, bool isLocalPlayer = false)

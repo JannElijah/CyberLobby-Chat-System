@@ -17,44 +17,66 @@ public class ChatMessageUI : MonoBehaviour
     /// </summary>
     public void SetupMessage(string senderName, string messageContent, string senderColorHex = "#FFFFFF", bool isLocalPlayer = false)
     {
+        // Add timestamp
+        string timestamp = System.DateTime.Now.ToString("HH:mm:ss");
+
         if (PlayerNameText != null)
         {
-            // Apply the color via rich text to the TMP component
-            PlayerNameText.text = $"<color={senderColorHex}>{senderName}</color>";
-            PlayerNameText.alignment = isLocalPlayer ? TextAlignmentOptions.TopRight : TextAlignmentOptions.TopLeft;
+            // Format to look like a terminal prompt
+            if (senderName == "[System]" || senderName.StartsWith("To ") || senderName.EndsWith("(Whisper)")) 
+            {
+                PlayerNameText.text = $"<color={senderColorHex}>[{timestamp}] {senderName}</color>";
+            } 
+            else 
+            {
+                PlayerNameText.text = $"<color={senderColorHex}>[{timestamp}] {senderName}@neon-os:~$</color>";
+            }
+            // Always left-align for terminal style
+            PlayerNameText.alignment = TextAlignmentOptions.TopLeft;
         }
 
         if (MessageBodyText != null)
         {
-            MessageBodyText.text = messageContent;
-            MessageBodyText.alignment = isLocalPlayer ? TextAlignmentOptions.TopRight : TextAlignmentOptions.TopLeft;
+            // Apply color to the message body text as well
+            MessageBodyText.text = $"<color={senderColorHex}>{messageContent}</color>";
+            // Always left-align for terminal style
+            MessageBodyText.alignment = TextAlignmentOptions.TopLeft;
+            
+            if (senderName == "[System]")
+            {
+                StartCoroutine(TypewriterEffect());
+            }
         }
 
         if (layoutGroup != null)
         {
-            // Pushes the layout to the right or left
-            layoutGroup.childAlignment = isLocalPlayer ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
-            
-            // Reverses the arrangement so the avatar (if any) swaps to the correct side!
-            layoutGroup.reverseArrangement = isLocalPlayer; 
+            // Always align to the left
+            layoutGroup.childAlignment = TextAnchor.UpperLeft;
+            layoutGroup.reverseArrangement = false; 
         }
 
         if (ProfileImage != null)
         {
-            if (senderName == "[System]")
-            {
-                // Hide the profile icon entirely for System messages
-                ProfileImage.gameObject.SetActive(false);
-            }
-            else
-            {
-                ProfileImage.gameObject.SetActive(true);
-                // Color the avatar to match the player's name color
-                if (ColorUtility.TryParseHtmlString(senderColorHex, out Color parsedColor))
-                {
-                    ProfileImage.color = parsedColor;
-                }
-            }
+            // Hide the avatar block completely for a true terminal aesthetic
+            ProfileImage.gameObject.SetActive(false);
+        }
+    }
+
+    private IEnumerator TypewriterEffect()
+    {
+        if (MessageBodyText == null) yield break;
+        
+        MessageBodyText.maxVisibleCharacters = 0;
+        
+        // Wait for TMP to parse the text layout
+        yield return null;
+        
+        int totalChars = MessageBodyText.textInfo.characterCount;
+
+        for (int i = 0; i <= totalChars; i++)
+        {
+            MessageBodyText.maxVisibleCharacters = i;
+            yield return new WaitForSeconds(0.01f);
         }
     }
 
