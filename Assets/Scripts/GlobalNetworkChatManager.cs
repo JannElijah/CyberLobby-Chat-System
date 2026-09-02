@@ -9,6 +9,8 @@ using System.Collections.Generic;
 public class GlobalNetworkChatManager : NetworkBehaviour
 {
     public TMP_InputField ChatInputField;
+    [Tooltip("Assign the main chat panel or canvas here to toggle it on/off")]
+    public GameObject ChatUIPanel;
     public GameObject MessagePrefab;
     public Transform ChatContentParent;
     public Button SendTextButton;
@@ -117,20 +119,61 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             ChatInputField.onSubmit.AddListener(OnChatSubmit);
             ChatInputField.onValueChanged.AddListener(OnInputValueChanged);
         }
+
+        // Hide chat by default
+        CloseChat();
+    }
+
+    private void OpenChat(bool prefillSlash)
+    {
+        if (ChatUIPanel != null) ChatUIPanel.SetActive(true);
+        if (ChatInputField != null)
+        {
+            ChatInputField.gameObject.SetActive(true);
+            ChatInputField.ActivateInputField();
+            if (prefillSlash)
+            {
+                ChatInputField.text = "/";
+                ChatInputField.caretPosition = 1;
+            }
+        }
+    }
+
+    private void CloseChat()
+    {
+        if (ChatUIPanel != null) ChatUIPanel.SetActive(false);
+        if (ChatInputField != null)
+        {
+            ChatInputField.text = "";
+            ChatInputField.DeactivateInputField();
+        }
     }
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+        bool isFocused = ChatInputField != null && ChatInputField.isFocused;
+
+        if (!isFocused)
         {
-            if (ChatInputField != null && !ChatInputField.isFocused)
+            // Open chat
+            if (Input.GetKeyDown(KeyCode.Slash))
             {
-                ChatInputField.ActivateInputField();
+                OpenChat(true);
+            }
+            else if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                OpenChat(false);
             }
         }
-
-        if (ChatInputField != null && ChatInputField.isFocused)
+        else
         {
+            // Close chat with Escape
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseChat();
+            }
+
+            // History Navigation
             if (Input.GetKeyDown(KeyCode.UpArrow))
             {
                 if (sentHistory.Count > 0)
@@ -202,9 +245,9 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             {
                 sentHistory.Add(inputText);
                 historyIndex = -1;
-                ChatInputField.ActivateInputField();
                 isTypingLocally = false;
                 SetTypingStateServerRpc(false);
+                CloseChat();
                 return;
             }
 
@@ -214,7 +257,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             isTypingLocally = false;
             SetTypingStateServerRpc(false);
             SubmitMessageServerRpc(inputText, playerName);
-            ChatInputField.ActivateInputField();
+            CloseChat();
         }
     }
 
