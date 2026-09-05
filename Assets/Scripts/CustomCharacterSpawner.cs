@@ -42,6 +42,12 @@ public class CustomCharacterSpawner : MonoBehaviour
             return;
         }
 
+        // Prevent double-spawning! If the client already has a player object, do nothing.
+        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out NetworkClient client))
+        {
+            if (client.PlayerObject != null) return; 
+        }
+
         // Pick character based on client ID (0 = first prefab, 1 = second prefab)
         // If 3 people join, it loops back to the first prefab!
         int index = (int)(clientId % (ulong)characterPrefabs.Count);

@@ -44,7 +44,10 @@ public class ChatMessageUI : MonoBehaviour
             
             if (senderName == "[System]")
             {
-                StartCoroutine(TypewriterEffect());
+                if (gameObject.activeInHierarchy)
+                {
+                    StartCoroutine(TypewriterEffect());
+                }
             }
         }
 

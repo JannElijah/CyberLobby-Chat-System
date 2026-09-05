@@ -1,5 +1,36 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4998509047237330318
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7331225070630260240}
+  m_Layer: 0
+  m_Name: Carry_Point
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7331225070630260240
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4998509047237330318}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 7.61}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8986284425068155156}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &8880829564795582207
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -58,7 +89,10 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: 7828e54b4dbe34144b1146d1b5b2fdfe, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 90e4930054ca8e64e831d3e92ceefd72, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7331225070630260240}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 90e4930054ca8e64e831d3e92ceefd72, type: 3}
       insertIndex: -1
@@ -168,11 +202,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInteraction
   ShowTopMostFoldoutHeaderGroup: 1
-  interactionRadius: 1.5
+  interactionRadius: 10
   interactionOffset: {x: 0, y: 0.5, z: 1}
   interactableLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
+  carryPoint: {fileID: 7331225070630260240}
 --- !u!114 &1723401923364901549
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -247,3 +282,8 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!4 &8986284425068155156 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 90e4930054ca8e64e831d3e92ceefd72, type: 3}
+  m_PrefabInstance: {fileID: 8880829564795582207}
+  m_PrefabAsset: {fileID: 0}
