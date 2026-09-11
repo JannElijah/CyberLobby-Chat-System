@@ -1,42 +1,56 @@
-# 🌐 CyberLobby - Advanced Networked Chat System
+# CyberLobby Grocery Co-Op 🛒🐿️
 
-A high-performance, server-authoritative multiplayer chat terminal built with **Unity** and **Netcode for GameObjects (NGO 1.8+)**. This project features a stylized "Cyberpunk Terminal" aesthetic and leverages advanced networking concepts like targeted remote procedure calls (RPCs), continuous state synchronization, and server-side command parsing.
+A frantic, top-down cooperative time-management and business simulation game built in Unity! Players take control of a Capybara and a Beaver as they team up to run a chaotic, rapidly expanding grocery store.
 
----
-
-## ✨ Key Features
-
-### 📡 Advanced Networking (NGO)
-*   **Server-Authoritative Parsing:** All commands are processed strictly on the server to prevent client-side injection or spoofing.
-*   **Targeted RPCs (`RpcTarget.Single`):** Private whispers and system errors are routed *only* to the intended client's network connection, keeping bandwidth low and security high.
-*   **Continuous State Sync:** A live "User is typing..." indicator continuously updates the server when a client's input field changes, broadcasting the state to all connected clients.
-*   **Admin Connection Management:** The server Host is automatically assigned a `[ROOT]` role with the power to forcefully sever client connections using `NetworkManager.Singleton.DisconnectClient()`.
-
-### 🖥️ Cyberpunk UI/UX
-*   **True Terminal Aesthetic:** Left-aligned, monospaced text (RobotoMono) against a deep dark background (`#0D0D12`), stripped of traditional avatar profiles.
-*   **Typewriter Boot Sequence:** A custom Coroutine leverages TextMeshPro's `maxVisibleCharacters` to print system alerts and terminal flushes character-by-character.
-*   **Randomized Neon Assignments:** Clients are assigned a unique, random neon hex color upon joining, styling their terminal prompt permanently to distinguish them in crowded lobbies.
-*   **Quality of Life:** Features include `Enter`-key auto-focusing for seamless typing and `Up/Down Arrow` command history to recall previously sent messages.
+## 💡 Inspiration
+This project is heavily inspired by the cooperative chaos of games like ***PlateUp!*** and ***Overcooked!***. However, instead of cooking food in a kitchen, players are managing the logistics of a retail store—handling delivery trucks, stocking shelves, managing queues, and dealing with impatient customers.
 
 ---
 
-## 💻 Terminal Command Reference
+## 🎯 The Goal of the Game
+The ultimate objective is to survive a **7-Day Run**. 
+Each day brings more customers, more complex shopping lists, and a faster pace. If players fail to restock shelves or ring up customers in time, the customers will get angry and leave. If the store loses all of its Reputation, the run is over. 
 
-All commands are fully **case-insensitive** and handle spaces in user names flawlessly.
-
-| Command | Permission | Description |
-| :--- | :--- | :--- |
-| `/help` | Everyone | Prints the local list of available commands. |
-| `/ping` | Everyone | Queries the local Network Transport for current RTT (Latency) and Frame Time. |
-| `/nick <name>` | Everyone | Changes your display handle and broadcasts the update to the lobby. |
-| `/players` | Everyone | Queries the server for a list of all currently connected users. |
-| `/w <name> <message>` | Everyone | Sends a secure, targeted private message that displays in purple. |
-| `/clear` | Everyone | Flushes the local chat history and initiates the ASCII boot sequence. |
-| `/kick <name>` | **Host Only** | Forcefully disconnects the target user from the server. Normal users receive an *Access Denied* error. |
+If players survive all 7 days, they successfully "Franchise" the store, winning the run and unlocking new layouts and cosmetics!
 
 ---
 
-## 🛡️ Security
-*   **Profanity Filter:** A server-side regex parser intercepts incoming broadcasts and sanitizes a dictionary of banned words before sending them to clients.
-*   **HTML Injection Prevention:** Rich text tags (`<color>`, `<b>`) are stripped from user inputs to prevent UI hijacking.
-*   **Spam Prevention:** A local cooldown timer rejects messages sent too rapidly.
+## 🔄 The Flow of a Day
+
+A single day in the game is split into three distinct phases:
+
+### 1. Morning Prep (Store Closed)
+* **Deliveries Arrive:** A delivery truck drops off sealed cardboard boxes at the loading dock.
+* **Unpacking:** Players must physically carry boxes to an Unpacking Station, rip them open, and sort the products.
+* **Stocking Shelves:** Players run items from the stockroom to the storefront, organizing items onto specific shelves (e.g., Produce, Canned Goods, Frozen Foods) before the doors open.
+
+### 2. Shift Active (Store Open)
+* **Customer AI:** Customers enter the store with randomized shopping lists hovering over their heads.
+* **Gathering:** Customers navigate the aisles to find their items. If a shelf is empty, a timer starts ticking down. The players must urgently restock that specific shelf before the customer's patience runs out!
+* **Checkout:** Once a customer has their items, they line up at the Cash Register. A player must man the register to ring them up and collect the cash.
+* **Hazards:** Customers may drop items, creating puddles or messes that slow everyone down. Players must grab a mop and clean the spills.
+
+### 3. Upgrade & Restructure (Nighttime)
+* **Tally Profits:** The day ends, and cash earned is tallied.
+* **Store Customization:** Players use profits to buy new equipment from a catalog (e.g., better cash registers, larger shelves, faster unpacking tables).
+* **Roguelite Choices:** Every few days, players must choose a "Franchise Card" that introduces a new challenge or product line (e.g., *Add a Bakery Section* vs *Customers move 20% faster*).
+
+---
+
+## ⚙️ Core Mechanics
+
+* **Physical Carry System:** Players can only carry a limited number of items at once (or one heavy box). When a player picks up a box, the game physically parents the object to the player's hands and smoothly disables physics to prevent glitches.
+* **Global Text Chat:** Because communication is key, players can press `/` to open a global chat. Movement is locked while typing to prevent accidental inputs.
+* **Role Specialization:** The game does not force roles, but the frantic pace naturally encourages players to specialize (e.g., the Capybara handles the stockroom and unpacking, while the Beaver handles the cash register and mopping).
+
+---
+
+## 🛠️ Technical Details & Networking
+
+This game is built with a focus on robust multiplayer architecture.
+
+* **Engine:** Unity 6 LTS
+* **Networking:** Unity Netcode for GameObjects (NGO)
+* **Architecture:** Client-Server Model. The host acts as the authoritative server.
+* **Anti-Cheat & Security:** Actions like picking up boxes or purchasing upgrades are handled via `ServerRpc`, ensuring the server validates who is holding what.
+* **Latency Mitigation:** Movement is handled via Owner-Authoritative `NetworkTransforms`. This allows players to control their own characters with zero input lag, while the server smoothly synchronizes their positions to everyone else using Interpolation. 
