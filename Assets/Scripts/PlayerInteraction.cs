@@ -58,27 +58,50 @@ public class PlayerInteraction : NetworkBehaviour
     {
         if (!IsOwner) return;
 
-        // SCENARIO 1: We are ALREADY carrying a box
+        // Find what we are looking at
+        Vector3 sphereCenter = transform.TransformPoint(interactionOffset);
+        Collider[] hitColliders = Physics.OverlapSphere(sphereCenter, interactionRadius, interactableLayer);
+        IInteractable hitInteractable = null;
+        
+        if (hitColliders.Length > 0)
+        {
+            // Loop through all hits to find the closest valid interactable
+            float closestDistance = float.MaxValue;
+            foreach (var hit in hitColliders)
+            {
+                var interactable = hit.GetComponentInParent<IInteractable>();
+                if (interactable != null)
+                {
+                    float dist = Vector3.Distance(sphereCenter, hit.transform.position);
+                    if (dist < closestDistance)
+                    {
+                        closestDistance = dist;
+                        hitInteractable = interactable;
+                    }
+                }
+            }
+        }
+
+        // SCENARIO 1: We are ALREADY carrying an item
         if (carriedItemNetworkId.Value != 0)
         {
-            // Drop it! (In the future, we will check if we are looking at an unpacking station first)
-            DropItemServerRpc();
+            if (hitInteractable != null && !(hitInteractable is GrabbableItem))
+            {
+                // Interact with the station/shelf while holding an item
+                hitInteractable.Interact(this);
+            }
+            else
+            {
+                // Otherwise drop it on the floor
+                DropItemServerRpc();
+            }
             return;
         }
 
         // SCENARIO 2: We are EMPTY HANDED
-        // Do an overlap sphere to find a box to pick up
-        Vector3 sphereCenter = transform.TransformPoint(interactionOffset);
-        Collider[] hitColliders = Physics.OverlapSphere(sphereCenter, interactionRadius, interactableLayer);
-
-        if (hitColliders.Length > 0)
+        if (hitInteractable != null)
         {
-            // Get the interface from the object we hit (or its parent, in case it's on the root of the box)
-            IInteractable interactable = hitColliders[0].GetComponentInParent<IInteractable>();
-            if (interactable != null)
-            {
-                interactable.Interact(this);
-            }
+            hitInteractable.Interact(this);
         }
     }
 
@@ -151,6 +174,11 @@ public class PlayerInteraction : NetworkBehaviour
 
         // 3. Update the Animator (true if holding something, false if empty handed)
         animator.SetBool("IsCarrying", newItemId != 0);
+    }
+
+    public GrabbableItem GetCarriedItem()
+    {
+        return currentlyCarriedItemScript;
     }
 
     private void OnDrawGizmosSelected()
