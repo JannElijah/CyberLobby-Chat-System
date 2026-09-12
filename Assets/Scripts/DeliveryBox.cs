@@ -29,7 +29,15 @@ public class DeliveryBox : GrabbableItem
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        isOpen.OnValueChanged += (oldVal, newVal) => OnBoxStateChanged?.Invoke(newVal);
+        isOpen.OnValueChanged += (oldVal, newVal) => 
+        {
+            OnBoxStateChanged?.Invoke(newVal);
+            if (newVal && !oldVal)
+            {
+                var anim = GetComponent<Animator>();
+                if (anim != null) anim.SetTrigger("Open");
+            }
+        };
         itemCount.OnValueChanged += (oldVal, newVal) => OnItemCountChanged?.Invoke(newVal);
         
         // Trigger initial state locally

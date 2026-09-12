@@ -1,5 +1,8 @@
 public enum ProductType
 {
     Cereal,
-    Soda
+    Soda,
+    Chips,
+    CannedFood,
+    Milk
 }
