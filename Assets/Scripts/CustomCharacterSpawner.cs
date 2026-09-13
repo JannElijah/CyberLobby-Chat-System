@@ -48,9 +48,20 @@ public class CustomCharacterSpawner : MonoBehaviour
             if (client.PlayerObject != null) return; 
         }
 
-        // Pick character based on client ID (0 = first prefab, 1 = second prefab)
-        // If 3 people join, it loops back to the first prefab!
-        int index = (int)(clientId % (ulong)characterPrefabs.Count);
+        // Check if the lobby passed down a character selection for this client
+        int index = 0;
+        if (NetworkLobbyManager.ClientCharacterSelections.TryGetValue(clientId, out int chosenChar))
+        {
+            index = chosenChar;
+        }
+        else
+        {
+            // Fallback if they bypassed the lobby (e.g. testing directly in Gameplay scene)
+            index = (int)(clientId % (ulong)characterPrefabs.Count);
+        }
+
+        // Safety check to ensure index is within bounds
+        index = Mathf.Clamp(index, 0, characterPrefabs.Count - 1);
         GameObject prefabToSpawn = characterPrefabs[index];
 
         // Instantiate the object

@@ -1,31 +1,29 @@
 using UnityEngine;
-using Unity.Netcode;
 using UnityEngine.SceneManagement;
 
 public class MainMenuUI : MonoBehaviour
 {
-    public void HostGame()
+    public void OnPlayButtonClicked()
     {
-        if (NetworkManager.Singleton.StartHost())
-        {
-            // Only the server/host can trigger a networked scene load
-            NetworkManager.Singleton.SceneManager.LoadScene("1_LobbyScene", LoadSceneMode.Single);
-        }
-        else
-        {
-            Debug.LogError("Failed to start host.");
-        }
+        // Loads the offline scene, which likely handles the host/join logic
+        SceneManager.LoadScene("0_OfflineScene");
     }
 
-    public void JoinGame()
+    public void OnOptionsButtonClicked()
     {
-        if (NetworkManager.Singleton.StartClient())
-        {
-            Debug.Log("Client started. Waiting for connection...");
-        }
-        else
-        {
-            Debug.LogError("Failed to start client.");
-        }
+        // TODO: Implement opening an options menu/panel
+        Debug.Log("Options button clicked! (Not yet implemented)");
+    }
+
+    public void OnCreditsButtonClicked()
+    {
+        // TODO: Implement opening a credits menu/panel
+        Debug.Log("Credits button clicked! (Not yet implemented)");
+    }
+
+    public void OnQuitButtonClicked()
+    {
+        Debug.Log("Quitting game...");
+        Application.Quit();
     }
 }
