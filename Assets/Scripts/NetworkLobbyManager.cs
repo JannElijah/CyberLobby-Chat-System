@@ -40,6 +40,9 @@ public class NetworkLobbyManager : NetworkBehaviour
     [Tooltip("Text on the Ready button to show current state")]
     public TMP_Text readyButtonText;
 
+    private Coroutine gameStartCoroutine;
+    private bool isCountingDown = false;
+
     // This dictionary will persist character choices for the CustomCharacterSpawner
     public static Dictionary<ulong, int> ClientCharacterSelections = new Dictionary<ulong, int>();
 
@@ -85,6 +88,12 @@ public class NetworkLobbyManager : NetworkBehaviour
 
     private void HandleClientConnected(ulong clientId)
     {
+        // Check if the RPC already added them
+        foreach (var player in LobbyPlayers)
+        {
+            if (player.ClientId == clientId) return;
+        }
+
         // Add default state for new client
         LobbyPlayers.Add(new LobbyPlayerState 
         { 
@@ -110,6 +119,7 @@ public class NetworkLobbyManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void UpdatePlayerStateServerRpc(ulong clientId, string playerName, int characterId, bool isReady)
     {
+        bool found = false;
         for (int i = 0; i < LobbyPlayers.Count; i++)
         {
             if (LobbyPlayers[i].ClientId == clientId)
@@ -121,9 +131,22 @@ public class NetworkLobbyManager : NetworkBehaviour
                     CharacterId = characterId,
                     IsReady = isReady
                 };
+                found = true;
                 CheckGameStart();
                 break;
             }
+        }
+
+        if (!found)
+        {
+            LobbyPlayers.Add(new LobbyPlayerState
+            {
+                ClientId = clientId,
+                PlayerName = playerName,
+                CharacterId = characterId,
+                IsReady = isReady
+            });
+            CheckGameStart();
         }
     }
 
@@ -145,8 +168,53 @@ public class NetworkLobbyManager : NetworkBehaviour
                 ClientCharacterSelections[player.ClientId] = player.CharacterId;
             }
 
-            NetworkManager.Singleton.SceneManager.LoadScene("2_GameplayScene", LoadSceneMode.Single);
-            enabled = false;
+            if (gameStartCoroutine == null)
+            {
+                gameStartCoroutine = StartCoroutine(GameStartCountdownRoutine());
+            }
+        }
+        else
+        {
+            if (gameStartCoroutine != null)
+            {
+                StopCoroutine(gameStartCoroutine);
+                gameStartCoroutine = null;
+                UpdateCountdownUIClientRpc(-1);
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator GameStartCountdownRoutine()
+    {
+        for (int i = 3; i > 0; i--)
+        {
+            UpdateCountdownUIClientRpc(i);
+            yield return new WaitForSeconds(1f);
+        }
+
+        UpdateCountdownUIClientRpc(0);
+        NetworkManager.Singleton.SceneManager.LoadScene("2_GameplayScene", LoadSceneMode.Single);
+        enabled = false;
+    }
+
+    [ClientRpc]
+    private void UpdateCountdownUIClientRpc(int count)
+    {
+        if (count > 0)
+        {
+            isCountingDown = true;
+            if (statusText != null) statusText.text = $"Game Starting in {count}...";
+        }
+        else if (count == 0)
+        {
+            isCountingDown = true;
+            if (statusText != null) statusText.text = "Loading...";
+        }
+        else
+        {
+            isCountingDown = false;
+            // Force a UI refresh of the ready text
+            HandleLobbyPlayersStateChanged(new NetworkListEvent<LobbyPlayerState>());
         }
     }
 
@@ -164,7 +232,7 @@ public class NetworkLobbyManager : NetworkBehaviour
             }
         }
 
-        if (statusText != null)
+        if (statusText != null && !isCountingDown)
         {
             statusText.text = $"PLAYERS READY:\n{readyCount} / {LobbyPlayers.Count}";
         }

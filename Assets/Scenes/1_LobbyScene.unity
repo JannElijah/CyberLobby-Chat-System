@@ -356,6 +356,9 @@ MonoBehaviour:
   readyStatusText: {fileID: 1146303980}
   activePlayerVisual: {fileID: 0}
   waitingForPlayerVisual: {fileID: 0}
+  localPlayerButtons:
+  - {fileID: 1491236939}
+  - {fileID: 726385533}
   capybaraModel: {fileID: 560914577}
   beaverModel: {fileID: 1051122370}
 --- !u!1001 &218815731
@@ -768,7 +771,7 @@ Transform:
   m_GameObject: {fileID: 449962480}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 188.7, y: -76.9, z: 20}
+  m_LocalPosition: {x: 188.7, y: -90, z: 20}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1213,7 +1216,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 593885902}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 656525983}
+        m_TargetAssemblyTypeName: NetworkLobbyManager, Assembly-CSharp
+        m_MethodName: OnToggleCharacterClicked
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &593885902
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1601,7 +1616,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Player1_Name
+  m_text: Player2_Name
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: cef38acbe7f6aa543acbb666f016ca4b, type: 2}
   m_sharedMaterial: {fileID: -97440600698812496, guid: cef38acbe7f6aa543acbb666f016ca4b, type: 2}
@@ -1763,7 +1778,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 726385536}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 656525983}
+        m_TargetAssemblyTypeName: NetworkLobbyManager, Assembly-CSharp
+        m_MethodName: OnToggleCharacterClicked
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &726385536
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2666,6 +2693,9 @@ MonoBehaviour:
   readyStatusText: {fileID: 1137496902}
   activePlayerVisual: {fileID: 1477302073}
   waitingForPlayerVisual: {fileID: 69531148}
+  localPlayerButtons:
+  - {fileID: 593885899}
+  - {fileID: 1291098154}
   capybaraModel: {fileID: 218815733}
   beaverModel: {fileID: 1009779473}
 --- !u!1 &1137496900
@@ -3834,7 +3864,7 @@ Transform:
   m_GameObject: {fileID: 1787323566}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 65.3, y: 21.9, z: 20}
+  m_LocalPosition: {x: 65.3, y: 8.9, z: 20}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

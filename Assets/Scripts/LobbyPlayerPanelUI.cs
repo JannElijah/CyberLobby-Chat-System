@@ -16,6 +16,10 @@ public class LobbyPlayerPanelUI : MonoBehaviour
     [Tooltip("Optional: A 'Waiting for Player...' text object to show when this slot is empty")]
     public GameObject waitingForPlayerVisual;
 
+    [Header("Local Controls")]
+    [Tooltip("Assign the Ready and Change Character buttons here to hide them from other players")]
+    public GameObject[] localPlayerButtons;
+
     [Header("3D Character Models")]
     [Tooltip("Drag the actual 3D model from your scene here")]
     public GameObject capybaraModel;
@@ -50,6 +54,17 @@ public class LobbyPlayerPanelUI : MonoBehaviour
             {
                 readyStatusText.text = state.IsReady ? "READY!" : "Not Ready";
                 readyStatusText.color = state.IsReady ? Color.green : Color.red;
+            }
+
+            bool isLocalPlayer = (state.ClientId == Unity.Netcode.NetworkManager.Singleton.LocalClientId);
+
+            // Hide/Show Local Player Controls
+            if (localPlayerButtons != null)
+            {
+                foreach (var btn in localPlayerButtons)
+                {
+                    if (btn != null) btn.SetActive(isLocalPlayer);
+                }
             }
 
             // Toggle 3D Models

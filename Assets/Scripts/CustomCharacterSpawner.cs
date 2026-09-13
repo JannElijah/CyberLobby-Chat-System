@@ -9,10 +9,16 @@ public class CustomCharacterSpawner : MonoBehaviour
 
     private void Start()
     {
-        // Wait for the server to start to hook into the connection events
-        if (NetworkManager.Singleton != null)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
         {
-            NetworkManager.Singleton.OnServerStarted += OnServerStarted;
+            // Subscribe to any new clients connecting (late joiners)
+            NetworkManager.Singleton.OnClientConnectedCallback += SpawnCharacter;
+
+            // Spawn characters for all clients that are already connected!
+            foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+            {
+                SpawnCharacter(clientId);
+            }
         }
     }
 
@@ -20,18 +26,8 @@ public class CustomCharacterSpawner : MonoBehaviour
     {
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.Singleton.OnServerStarted -= OnServerStarted;
             NetworkManager.Singleton.OnClientConnectedCallback -= SpawnCharacter;
         }
-    }
-
-    private void OnServerStarted()
-    {
-        // Subscribe to any new clients connecting
-        NetworkManager.Singleton.OnClientConnectedCallback += SpawnCharacter;
-
-        // The host connects immediately and might miss the callback, so spawn their character right away!
-        SpawnCharacter(NetworkManager.Singleton.LocalClientId);
     }
 
     private void SpawnCharacter(ulong clientId)
