@@ -156,7 +156,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.70710677, z: -0, w: 0.7071068}
   m_LocalPosition: {x: -10.023527, y: 1.2218623, z: -32.55993}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6131939801856627972}
@@ -331,6 +331,10 @@ MonoBehaviour:
   - {fileID: 2247143794337735144}
   - {fileID: 7192363017146332093}
   - {fileID: 8793237543699147283}
+  itemScale: 1.5
+  elevationOffset: 3
+  addRandomJitter: 1
+  animatePopIn: 1
 --- !u!1 &4696845846313139620
 GameObject:
   m_ObjectHideFlags: 0

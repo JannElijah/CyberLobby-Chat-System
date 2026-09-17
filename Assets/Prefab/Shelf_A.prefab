@@ -156,7 +156,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.70710677, z: -0, w: 0.7071068}
   m_LocalPosition: {x: -7.372591, y: 4.4004636, z: -4.32373}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9083467958131956031}
@@ -262,13 +262,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1379144920
+  GlobalObjectIdHash: 319523809
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  m_InScenePlaced: 1
+  m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
@@ -319,6 +319,10 @@ MonoBehaviour:
   - {fileID: 2140077551156847723}
   - {fileID: 1112316500807143116}
   - {fileID: 8300728416284975111}
+  itemScale: 1.5
+  elevationOffset: 3
+  addRandomJitter: 1
+  animatePopIn: 1
 --- !u!1 &4859044848314990592
 GameObject:
   m_ObjectHideFlags: 0
