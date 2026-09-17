@@ -116,7 +116,7 @@ public class NetworkLobbyManager : NetworkBehaviour
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void UpdatePlayerStateServerRpc(ulong clientId, string playerName, int characterId, bool isReady)
     {
         bool found = false;

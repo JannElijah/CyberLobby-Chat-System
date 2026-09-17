@@ -16,6 +16,14 @@ public class PlayerController : NetworkBehaviour
     // Input actions defined programmatically for plug-and-play
     private InputAction moveAction;
 
+    [Header("Anti-Cheat Settings")]
+    public bool enableSpeedHackProtection = true;
+    public float maxToleranceSpeedMultiplier = 1.5f;
+    public float teleportToleranceDistance = 2.0f;
+    
+    private Vector3 lastServerValidPosition;
+    private float lastServerCheckTime;
+
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
@@ -43,6 +51,12 @@ public class PlayerController : NetworkBehaviour
             transform.position = new Vector3(transform.position.x, transform.position.y + 10f, transform.position.z);
             characterController.enabled = true;
         }
+
+        if (IsServer)
+        {
+            lastServerValidPosition = transform.position;
+            lastServerCheckTime = Time.time;
+        }
     }
 
     private void OnEnable()
@@ -58,9 +72,16 @@ public class PlayerController : NetworkBehaviour
     private void Update()
     {
         // Only the client that owns this player can control it
-        if (!IsOwner) return;
+        if (IsOwner)
+        {
+            HandleMovement();
+        }
 
-        HandleMovement();
+        // Server continuously validates the movement speeds
+        if (IsServer && enableSpeedHackProtection)
+        {
+            ValidateMovement();
+        }
     }
 
     private void HandleMovement()
@@ -93,5 +114,52 @@ public class PlayerController : NetworkBehaviour
         // Update the Animator "Speed" parameter
         // Using the input magnitude is much more reliable than characterController.velocity for top-down games!
         animator.SetFloat("Speed", moveInput.magnitude);
+    }
+
+    private void ValidateMovement()
+    {
+        float timeDelta = Time.time - lastServerCheckTime;
+        
+        // Wait for a small interval before checking to avoid dividing by zero or jitter
+        if (timeDelta < 0.1f) return;
+
+        // Ignore Y-axis for top-down distance validation to avoid gravity triggering anti-cheat
+        Vector3 currentPos2D = new Vector3(transform.position.x, 0, transform.position.z);
+        Vector3 lastPos2D = new Vector3(lastServerValidPosition.x, 0, lastServerValidPosition.z);
+        float distanceMoved = Vector3.Distance(currentPos2D, lastPos2D);
+        
+        // Allowed distance = (Max Speed * Time) + Flat Tolerance
+        float maxAllowableDistance = (moveSpeed * maxToleranceSpeedMultiplier * timeDelta) + teleportToleranceDistance;
+
+        if (distanceMoved > maxAllowableDistance)
+        {
+            Debug.LogWarning($"[Anti-Cheat] Player {OwnerClientId} moved too fast! Rubber-banding...");
+            
+            // Revert server transform to valid pos (might get overridden, so we also RPC the client)
+            transform.position = lastServerValidPosition;
+            
+            ForcePositionUpdateClientRpc(lastServerValidPosition);
+        }
+        else
+        {
+            // Position is valid, update server records
+            lastServerValidPosition = transform.position;
+        }
+        
+        lastServerCheckTime = Time.time;
+    }
+
+    [ClientRpc]
+    public void ForcePositionUpdateClientRpc(Vector3 validPosition)
+    {
+        // Only the owner physically forces the CharacterController update
+        if (!IsOwner) return;
+
+        if (characterController != null)
+        {
+            characterController.enabled = false;
+            transform.position = validPosition;
+            characterController.enabled = true;
+        }
     }
 }

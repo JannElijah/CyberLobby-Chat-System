@@ -52,7 +52,11 @@ public class PlayerInteraction : NetworkBehaviour
 
     private void OnEnable() => interactAction.Enable();
     private void OnDisable() => interactAction.Disable();
-    private void OnDestroy() => interactAction.performed -= OnInteractPerformed;
+    public override void OnDestroy() 
+    { 
+        base.OnDestroy();
+        interactAction.performed -= OnInteractPerformed; 
+    }
 
     private void OnInteractPerformed(InputAction.CallbackContext context)
     {

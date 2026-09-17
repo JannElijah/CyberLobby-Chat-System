@@ -40,7 +40,7 @@ public class Shelf : NetworkBehaviour, IInteractable
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void StockShelfServerRpc(ulong boxNetworkId)
     {
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(boxNetworkId, out NetworkObject boxObj))
@@ -54,7 +54,7 @@ public class Shelf : NetworkBehaviour, IInteractable
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void TakeItemServerRpc()
     {
         // Used by Customer AI to take an item

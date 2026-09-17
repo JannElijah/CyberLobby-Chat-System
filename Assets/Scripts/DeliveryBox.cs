@@ -45,7 +45,7 @@ public class DeliveryBox : GrabbableItem
         OnItemCountChanged?.Invoke(itemCount.Value);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void OpenBoxServerRpc()
     {
         if (!isOpen.Value)
@@ -54,7 +54,7 @@ public class DeliveryBox : GrabbableItem
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void RemoveItemServerRpc()
     {
         if (isOpen.Value && itemCount.Value > 0)
