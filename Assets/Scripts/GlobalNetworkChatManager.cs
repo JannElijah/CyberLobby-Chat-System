@@ -41,8 +41,11 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     private Dictionary<ulong, float> typingClients = new Dictionary<ulong, float>();
     private bool isTypingLocally = false;
 
+    public static GlobalNetworkChatManager Singleton { get; private set; }
+
     public override void OnNetworkSpawn()
     {
+        Singleton = this;
         if (IsClient)
         {
             if (IsServer)

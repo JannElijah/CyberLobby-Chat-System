@@ -135,6 +135,11 @@ public class PlayerController : NetworkBehaviour
         {
             Debug.LogWarning($"[Anti-Cheat] Player {OwnerClientId} moved too fast! Rubber-banding...");
             
+            if (GlobalNetworkChatManager.Singleton != null)
+            {
+                GlobalNetworkChatManager.Singleton.BroadcastMessageClientRpc("[SERVER-SECURITY]", $"Player {OwnerClientId} was detected using speed-hacks! Rubber-banding...", "#FF0000", ulong.MaxValue);
+            }
+            
             // Revert server transform to valid pos (might get overridden, so we also RPC the client)
             transform.position = lastServerValidPosition;
             
