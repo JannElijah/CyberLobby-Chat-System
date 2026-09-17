@@ -60,11 +60,6 @@ public class DeliveryBox : GrabbableItem
         if (isOpen.Value && itemCount.Value > 0)
         {
             itemCount.Value--;
-            if (itemCount.Value <= 0)
-            {
-                // Box is empty, destroy it
-                NetworkObject.Despawn(true);
-            }
         }
     }
 }

@@ -16,10 +16,33 @@ public class Shelf : NetworkBehaviour, IInteractable
 
     public event Action<int> OnStockChanged;
 
+    private Renderer[] renderers;
+    private Color[] originalColors;
+
     public override void OnNetworkSpawn()
     {
         currentStock.OnValueChanged += (oldVal, newVal) => OnStockChanged?.Invoke(newVal);
         OnStockChanged?.Invoke(currentStock.Value);
+
+        renderers = GetComponentsInChildren<Renderer>();
+        originalColors = new Color[renderers.Length];
+        for(int i = 0; i < renderers.Length; i++) 
+        {
+            if (renderers[i].material.HasProperty("_Color"))
+                originalColors[i] = renderers[i].material.color;
+        }
+    }
+
+    public void SetHighlight(bool isHighlighted)
+    {
+        if (renderers == null) return;
+        for(int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].material.HasProperty("_Color"))
+            {
+                renderers[i].material.color = isHighlighted ? originalColors[i] * 1.5f : originalColors[i];
+            }
+        }
     }
 
     public void Interact(PlayerInteraction interactor)

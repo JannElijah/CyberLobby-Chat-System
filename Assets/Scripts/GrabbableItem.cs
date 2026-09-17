@@ -6,11 +6,34 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
 {
     private Collider itemCollider;
     private Rigidbody rb;
+    
+    private Renderer[] renderers;
+    private Color[] originalColors;
 
     private void Awake()
     {
         itemCollider = GetComponent<Collider>();
         rb = GetComponent<Rigidbody>();
+
+        renderers = GetComponentsInChildren<Renderer>();
+        originalColors = new Color[renderers.Length];
+        for(int i = 0; i < renderers.Length; i++) 
+        {
+            if (renderers[i].material.HasProperty("_Color"))
+                originalColors[i] = renderers[i].material.color;
+        }
+    }
+
+    public void SetHighlight(bool isHighlighted)
+    {
+        if (renderers == null) return;
+        for(int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].material.HasProperty("_Color"))
+            {
+                renderers[i].material.color = isHighlighted ? originalColors[i] * 1.5f : originalColors[i];
+            }
+        }
     }
 
     public void Interact(PlayerInteraction interactor)

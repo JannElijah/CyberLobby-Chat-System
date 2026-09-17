@@ -16,6 +16,8 @@ public class PlayerInteraction : NetworkBehaviour
 
     private Animator animator;
     private InputAction interactAction;
+    private InputAction throwAction;
+    private IInteractable currentlyHighlightedItem;
 
     // Securely sync exactly WHICH item the player is carrying across the server
     private NetworkVariable<ulong> carriedItemNetworkId = new NetworkVariable<ulong>(
@@ -37,6 +39,12 @@ public class PlayerInteraction : NetworkBehaviour
         interactAction.AddBinding("<Gamepad>/buttonSouth");
 
         interactAction.performed += OnInteractPerformed;
+
+        throwAction = new InputAction("Throw", InputActionType.Button);
+        throwAction.AddBinding("<Keyboard>/q");
+        throwAction.AddBinding("<Gamepad>/buttonEast");
+
+        throwAction.performed += OnThrowPerformed;
     }
 
     public override void OnNetworkSpawn()
@@ -50,12 +58,23 @@ public class PlayerInteraction : NetworkBehaviour
         }
     }
 
-    private void OnEnable() => interactAction.Enable();
-    private void OnDisable() => interactAction.Disable();
+    private void OnEnable() 
+    { 
+        interactAction.Enable(); 
+        throwAction.Enable(); 
+    }
+    
+    private void OnDisable() 
+    { 
+        interactAction.Disable(); 
+        throwAction.Disable(); 
+    }
+    
     public override void OnDestroy() 
     { 
         base.OnDestroy();
         interactAction.performed -= OnInteractPerformed; 
+        throwAction.performed -= OnThrowPerformed;
     }
 
     private void LateUpdate()
@@ -69,33 +88,53 @@ public class PlayerInteraction : NetworkBehaviour
         }
     }
 
-    private void OnInteractPerformed(InputAction.CallbackContext context)
+    private void Update()
     {
         if (!IsOwner) return;
 
-        // Find what we are looking at
+        // Find what we are looking at continuously for highlighting
         Vector3 sphereCenter = transform.TransformPoint(interactionOffset);
         Collider[] hitColliders = Physics.OverlapSphere(sphereCenter, interactionRadius, interactableLayer);
-        IInteractable hitInteractable = null;
+        IInteractable closestInteractable = null;
         
         if (hitColliders.Length > 0)
         {
-            // Loop through all hits to find the closest valid interactable
             float closestDistance = float.MaxValue;
             foreach (var hit in hitColliders)
             {
                 var interactable = hit.GetComponentInParent<IInteractable>();
                 if (interactable != null)
                 {
-                    float dist = Vector3.Distance(sphereCenter, hit.transform.position);
+                    // Use ClosestPoint to accurately find the nearest edge of large/off-center colliders
+                    float dist = Vector3.Distance(sphereCenter, hit.ClosestPoint(sphereCenter));
                     if (dist < closestDistance)
                     {
                         closestDistance = dist;
-                        hitInteractable = interactable;
+                        closestInteractable = interactable;
                     }
                 }
             }
         }
+
+        if (closestInteractable != currentlyHighlightedItem)
+        {
+            if (currentlyHighlightedItem != null)
+            {
+                currentlyHighlightedItem.SetHighlight(false);
+            }
+            currentlyHighlightedItem = closestInteractable;
+            if (currentlyHighlightedItem != null)
+            {
+                currentlyHighlightedItem.SetHighlight(true);
+            }
+        }
+    }
+
+    private void OnInteractPerformed(InputAction.CallbackContext context)
+    {
+        if (!IsOwner) return;
+
+        IInteractable hitInteractable = currentlyHighlightedItem;
 
         // SCENARIO 1: We are ALREADY carrying an item
         if (carriedItemNetworkId.Value != 0)
@@ -163,7 +202,7 @@ public class PlayerInteraction : NetworkBehaviour
         }
     }
 
-    [ServerRpc]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void DropItemServerRpc()
     {
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(carriedItemNetworkId.Value, out NetworkObject itemObj))
@@ -172,6 +211,59 @@ public class PlayerInteraction : NetworkBehaviour
         }
 
         carriedItemNetworkId.Value = 0; // 0 means empty handed
+    }
+
+    // Added helper for client-side drop prediction (used by Trashcan)
+    public void ClearCarriedItemLocally()
+    {
+        if (currentlyCarriedItemScript != null)
+        {
+            currentlyCarriedItemScript.SetGrabbedState(false);
+            animator.SetBool("IsCarrying", false);
+            currentlyCarriedObject = null;
+            currentlyCarriedItemScript = null;
+        }
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    public void TrashCarriedItemServerRpc()
+    {
+        ulong id = carriedItemNetworkId.Value;
+        carriedItemNetworkId.Value = 0; // Clear it FIRST before destroying to prevent animation bugs
+
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id, out NetworkObject itemObj))
+        {
+            itemObj.Despawn();
+        }
+    }
+
+    private void OnThrowPerformed(InputAction.CallbackContext context)
+    {
+        if (!IsOwner || carriedItemNetworkId.Value == 0) return;
+
+        // CLIENT-SIDE PREDICTION
+        ClearCarriedItemLocally();
+
+        ThrowItemServerRpc(transform.forward);
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void ThrowItemServerRpc(Vector3 throwDirection)
+    {
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(carriedItemNetworkId.Value, out NetworkObject itemObj))
+        {
+            itemObj.TryRemoveParent();
+            
+            Rigidbody rb = itemObj.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = false;
+                // Launch forward extremely fast, ignoring mass
+                Vector3 force = (throwDirection + Vector3.up * 0.25f).normalized * 20f;
+                rb.AddForce(force, ForceMode.VelocityChange);
+            }
+        }
+        carriedItemNetworkId.Value = 0;
     }
 
     /// <summary>
