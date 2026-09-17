@@ -58,6 +58,17 @@ public class PlayerInteraction : NetworkBehaviour
         interactAction.performed -= OnInteractPerformed; 
     }
 
+    private void LateUpdate()
+    {
+        // Force the held object to perfectly match the hand position every frame.
+        // This overrides any network jitter and handles client-side prediction cleanly!
+        if (currentlyCarriedObject != null && carryPoint != null)
+        {
+            currentlyCarriedObject.transform.position = carryPoint.position;
+            currentlyCarriedObject.transform.rotation = carryPoint.rotation;
+        }
+    }
+
     private void OnInteractPerformed(InputAction.CallbackContext context)
     {
         if (!IsOwner) return;
@@ -97,6 +108,15 @@ public class PlayerInteraction : NetworkBehaviour
             else
             {
                 // Otherwise drop it on the floor
+                // CLIENT-SIDE PREDICTION: Instantly drop locally to avoid visual delay
+                if (currentlyCarriedItemScript != null)
+                {
+                    currentlyCarriedItemScript.SetGrabbedState(false);
+                    animator.SetBool("IsCarrying", false);
+                    currentlyCarriedObject = null;
+                    currentlyCarriedItemScript = null;
+                }
+
                 DropItemServerRpc();
             }
             return;
@@ -115,10 +135,23 @@ public class PlayerInteraction : NetworkBehaviour
     public void RequestGrabItem(GrabbableItem item)
     {
         if (!IsOwner) return;
+
+        // CLIENT-SIDE PREDICTION: Instantly grab locally to avoid visual delay
+        item.SetGrabbedState(true);
+        if (carryPoint != null)
+        {
+            item.transform.position = carryPoint.position;
+            item.transform.rotation = carryPoint.rotation;
+        }
+        
+        animator.SetBool("IsCarrying", true);
+        currentlyCarriedObject = item.NetworkObject;
+        currentlyCarriedItemScript = item;
+
         GrabItemServerRpc(item.NetworkObjectId);
     }
 
-    [ServerRpc]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void GrabItemServerRpc(ulong itemNetworkId)
     {
         carriedItemNetworkId.Value = itemNetworkId;
@@ -126,7 +159,7 @@ public class PlayerInteraction : NetworkBehaviour
         // In Unity Netcode, the Server securely manages the parenting of objects
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(itemNetworkId, out NetworkObject itemObj))
         {
-            itemObj.TrySetParent(transform); // Parent the box to the player on the network
+            itemObj.TrySetParent(carryPoint != null ? carryPoint : transform); // Parent the box to the player on the network
         }
     }
 

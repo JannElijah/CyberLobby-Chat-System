@@ -36,5 +36,13 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
         {
             rb.isKinematic = isGrabbed;
         }
+
+        // We disable the NetworkTransform entirely while grabbed so it doesn't fight the local parent.
+        // The item will naturally follow the player's NetworkTransform over the network!
+        var nt = GetComponent<Unity.Netcode.Components.NetworkTransform>();
+        if (nt != null)
+        {
+            nt.enabled = !isGrabbed;
+        }
     }
 }

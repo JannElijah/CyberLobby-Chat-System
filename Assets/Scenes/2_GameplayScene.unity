@@ -2750,8 +2750,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomCharacterSpawner
   characterPrefabs:
-  - {fileID: 8646456903391529902, guid: c8fb7b7b488f9a84c994ae561cdce15b, type: 3}
   - {fileID: 2038166493344020791, guid: d05a73b7c656b8542988cfe52c6db2a0, type: 3}
+  - {fileID: 8646456903391529902, guid: c8fb7b7b488f9a84c994ae561cdce15b, type: 3}
 --- !u!1 &1989248084
 GameObject:
   m_ObjectHideFlags: 0
