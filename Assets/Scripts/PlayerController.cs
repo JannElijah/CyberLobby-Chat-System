@@ -137,13 +137,17 @@ public class PlayerController : NetworkBehaviour
             
             if (GlobalNetworkChatManager.Singleton != null)
             {
-                GlobalNetworkChatManager.Singleton.BroadcastMessageClientRpc("[SERVER-SECURITY]", $"Player {OwnerClientId} was detected using speed-hacks! Rubber-banding...", "#FF0000", ulong.MaxValue);
+                string cheaterName = GlobalNetworkChatManager.Singleton.GetPlayerHandle(OwnerClientId);
+                GlobalNetworkChatManager.Singleton.BroadcastMessageClientRpc("[Anti-Cheat]", $"{cheaterName} was caught moving too fast! Reverting position...", "#FF0000", ulong.MaxValue);
             }
             
-            // Revert server transform to valid pos (might get overridden, so we also RPC the client)
-            transform.position = lastServerValidPosition;
+            // Revert server transform to valid pos
+            // We strictly snap them back to their last valid position for a dramatic punishment
+            Vector3 rubberBandPos = lastServerValidPosition;
+
+            transform.position = rubberBandPos;
             
-            ForcePositionUpdateClientRpc(lastServerValidPosition);
+            ForcePositionUpdateClientRpc(rubberBandPos);
         }
         else
         {

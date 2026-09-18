@@ -22,66 +22,43 @@ public class ChatMessageUI : MonoBehaviour
 
         if (PlayerNameText != null)
         {
-            // Format to look like a terminal prompt
             if (senderName == "[System]" || senderName.StartsWith("To ") || senderName.EndsWith("(Whisper)")) 
             {
                 PlayerNameText.text = $"<color={senderColorHex}>[{timestamp}] {senderName}</color>";
             } 
             else 
             {
-                PlayerNameText.text = $"<color={senderColorHex}>[{timestamp}] {senderName}@neon-os:~$</color>";
+                PlayerNameText.text = $"<color={senderColorHex}>[{timestamp}] {senderName}:</color>";
             }
-            // Always left-align for terminal style
+            // Left-align text
             PlayerNameText.alignment = TextAlignmentOptions.TopLeft;
         }
 
         if (MessageBodyText != null)
         {
-            // Apply color to the message body text as well
-            MessageBodyText.text = $"<color={senderColorHex}>{messageContent}</color>";
+            // Only apply custom colors to the message body if it's a system broadcast
+            if (senderName == "[System]" || senderName == "[Anti-Cheat]") 
+            {
+                MessageBodyText.text = $"<color={senderColorHex}>{messageContent}</color>";
+            }
+            else 
+            {
+                // Normal player text uses the default TMP Text color (should be dark/readable)
+                MessageBodyText.text = messageContent;
+            }
+            
             // Always left-align for terminal style
             MessageBodyText.alignment = TextAlignmentOptions.TopLeft;
-            
-            if (senderName == "[System]")
-            {
-                if (gameObject.activeInHierarchy)
-                {
-                    StartCoroutine(TypewriterEffect());
-                }
-            }
-        }
-
-        if (layoutGroup != null)
-        {
-            // Always align to the left
-            layoutGroup.childAlignment = TextAnchor.UpperLeft;
-            layoutGroup.reverseArrangement = false; 
         }
 
         if (ProfileImage != null)
         {
-            // Hide the avatar block completely for a true terminal aesthetic
+            // Hide the avatar block since we aren't dynamically assigning sprites yet
             ProfileImage.gameObject.SetActive(false);
         }
     }
 
-    private IEnumerator TypewriterEffect()
-    {
-        if (MessageBodyText == null) yield break;
-        
-        MessageBodyText.maxVisibleCharacters = 0;
-        
-        // Wait for TMP to parse the text layout
-        yield return null;
-        
-        int totalChars = MessageBodyText.textInfo.characterCount;
 
-        for (int i = 0; i <= totalChars; i++)
-        {
-            MessageBodyText.maxVisibleCharacters = i;
-            yield return new WaitForSeconds(0.01f);
-        }
-    }
 
     void Start()
     {

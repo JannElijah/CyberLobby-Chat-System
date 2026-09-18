@@ -37,7 +37,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
     [Header("Advanced Features")]
     public TMP_Text TypingIndicatorText;
     private Dictionary<ulong, string> clientColors = new Dictionary<ulong, string>();
-    private string[] neonColors = { "#00FFFF", "#FFFF00", "#FF6600", "#00FF66" };
+    private string[] chatColors = { "#8B4513", "#006400", "#00008B", "#4B0082", "#2F4F4F" }; // Darker colors for readability on tan UI
     private Dictionary<ulong, float> typingClients = new Dictionary<ulong, float>();
     private bool isTypingLocally = false;
 
@@ -50,13 +50,14 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         {
             if (IsServer)
             {
-                playerName = "[ROOT] Admin";
+                playerName = "Store Manager";
             }
             else
             {
-                playerName = "User_" + UnityEngine.Random.Range(100, 1000).ToString();
+                // Load their actual chosen name from the main menu!
+                playerName = PlayerPrefs.GetString("PlayerName", "User_" + UnityEngine.Random.Range(100, 1000).ToString());
             }
-            AddMessageToDisplay("[System]", $"You have been assigned the handle: {playerName}", "#00AAFF");
+            AddMessageToDisplay("[System]", $"You have been assigned the handle: {playerName}", "#000000");
             DeclareHandleServerRpc(playerName);
         }
 
@@ -82,11 +83,11 @@ public class GlobalNetworkChatManager : NetworkBehaviour
 
         if (clientId == NetworkManager.ServerClientId)
         {
-            clientColors[clientId] = "#FF0033"; // Red for Admin
+            clientColors[clientId] = "#8B0000"; // Dark Red for Host
         }
         else
         {
-            clientColors[clientId] = neonColors[UnityEngine.Random.Range(0, neonColors.Length)];
+            clientColors[clientId] = chatColors[UnityEngine.Random.Range(0, chatColors.Length)];
         }
 
         BroadcastMessageClientRpc("[System]", $"{handle} has connected.", "yellow", ulong.MaxValue);
@@ -110,6 +111,16 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         BroadcastMessageClientRpc("[System]", $"{handle} has disconnected.", "yellow", ulong.MaxValue);
     }
 
+    public string GetPlayerHandle(ulong clientId)
+    {
+        if (clientHandles.TryGetValue(clientId, out string handle))
+        {
+            // Remove the Store Manager tag if it exists so we just get their name
+            return handle.Replace("Store Manager", "").Trim();
+        }
+        return $"Player {clientId}";
+    }
+
     void Start()
     {
         if (SendTextButton != null)
@@ -127,8 +138,11 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         CloseChat();
     }
 
+    private bool isChatManuallyOpen = false;
+
     private void OpenChat(bool prefillSlash)
     {
+        isChatManuallyOpen = true;
         if (ChatUIPanel != null) ChatUIPanel.SetActive(true);
         if (ChatInputField != null)
         {
@@ -144,11 +158,43 @@ public class GlobalNetworkChatManager : NetworkBehaviour
 
     private void CloseChat()
     {
+        isChatManuallyOpen = false;
         if (ChatUIPanel != null) ChatUIPanel.SetActive(false);
         if (ChatInputField != null)
         {
             ChatInputField.text = "";
             ChatInputField.DeactivateInputField();
+        }
+        
+        // Ensure Unity's event system completely drops focus so we can use normal gameplay keys
+        if (UnityEngine.EventSystems.EventSystem.current != null)
+        {
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+        }
+    }
+
+    private Coroutine previewCoroutine;
+
+    private void ShowChatPreview()
+    {
+        if (ChatUIPanel == null) return;
+        
+        // Don't interfere if they manually opened the chat
+        if (isChatManuallyOpen) return;
+        
+        if (previewCoroutine != null) StopCoroutine(previewCoroutine);
+        previewCoroutine = StartCoroutine(PreviewRoutine());
+    }
+
+    private IEnumerator PreviewRoutine()
+    {
+        ChatUIPanel.SetActive(true);
+        yield return new WaitForSeconds(5f);
+        
+        // Only hide if they haven't manually opened it in the meantime
+        if (!isChatManuallyOpen)
+        {
+            ChatUIPanel.SetActive(false);
         }
     }
 
@@ -271,7 +317,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         
         if (lowerCmd.StartsWith("/help"))
         {
-            AddMessageToDisplay("[System]", "Available commands: /ping, /nick <name>, /players, /w <name> <message>, /kick <name>", "#00FF00");
+            AddMessageToDisplay("[System]", "Available commands: /ping, /nick <name>, /players, /w <name> <message>, /kick <name>, /speedhack", "#00FF00");
             isCommand = true;
         }
         else if (lowerCmd.StartsWith("/ping"))
@@ -295,7 +341,22 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         else if (lowerCmd.StartsWith("/clear"))
         {
             ClearChatHistory();
-            AddMessageToDisplay("[System]", "SYSTEM REBOOT INITIATED...\nMEMORY FLUSHED.\nWELCOME TO NEON-OS.", "#00FF66");
+            AddMessageToDisplay("[System]", "Chat history cleared.", "#FFFFFF");
+            isCommand = true;
+        }
+        else if (lowerCmd.StartsWith("/speedhack"))
+        {
+            PlayerController[] players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach(var p in players) 
+            {
+                if (p.IsOwner) 
+                {
+                    // Set an absurdly high speed to guarantee it trips the server's anti-cheat tolerance
+                    p.moveSpeed = 100f; 
+                    AddMessageToDisplay("[System]", "Speed cheat enabled.", "#FF0000");
+                    break;
+                }
+            }
             isCommand = true;
         }
 
@@ -370,7 +431,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         {
             if (senderId != NetworkManager.ServerClientId)
             {
-                TargetedMessageClientRpc("[System]", "Access Denied: Only [ROOT] Admin can use /kick.", "red", RpcTarget.Single(senderId, RpcTargetUse.Temp));
+                TargetedMessageClientRpc("[System]", "Access Denied: Only the Store Manager can kick players.", "red", RpcTarget.Single(senderId, RpcTargetUse.Temp));
                 return;
             }
 
@@ -381,7 +442,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
             foreach(var kvp in clientHandles)
             {
                 string handle = kvp.Value;
-                string cleanHandle = handle.Replace("[ROOT] ", ""); // Allow matching without [ROOT] prefix
+                string cleanHandle = handle.Replace("Store Manager", "").Trim();
                 
                 if (afterCommand.Equals(handle, System.StringComparison.OrdinalIgnoreCase) ||
                     afterCommand.Equals(cleanHandle, System.StringComparison.OrdinalIgnoreCase))
@@ -394,7 +455,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
 
             if (targetId.HasValue && targetId.Value != NetworkManager.ServerClientId)
             {
-                BroadcastMessageClientRpc("[System]", $"[ROOT] Admin has forcefully kicked {targetName} from the server.", "red", ulong.MaxValue);
+                BroadcastMessageClientRpc("[System]", $"The Store Manager has kicked {targetName} from the server.", "red", ulong.MaxValue);
                 NetworkManager.Singleton.DisconnectClient(targetId.Value);
             }
             else
@@ -523,6 +584,7 @@ public class GlobalNetworkChatManager : NetworkBehaviour
         }
 
         StartCoroutine(ForceScrollDown());
+        ShowChatPreview();
     }
 
     private IEnumerator ForceScrollDown()
