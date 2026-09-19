@@ -5,6 +5,7 @@ using TMPro;
 using System.Text.RegularExpressions;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode.Transports.UTP;
 
 public class GlobalNetworkChatManager : NetworkBehaviour
 {
@@ -356,6 +357,38 @@ public class GlobalNetworkChatManager : NetworkBehaviour
                     AddMessageToDisplay("[System]", "Speed cheat enabled.", "#FF0000");
                     break;
                 }
+            }
+            isCommand = true;
+        }
+        else if (lowerCmd.StartsWith("/lag"))
+        {
+            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            if (transport != null)
+            {
+                // Toggle lag based on current settings
+                bool isLagging = transport.SimulatorParameters.Delay > 0;
+                if (!isLagging)
+                {
+                    transport.SetSimulatorParameters(
+                        delayMs: 150, 
+                        jitterMs: 10, 
+                        dropPercentage: 0, 
+                        maxPacketSize: 0);
+                    AddMessageToDisplay("[System]", "Artificial Lag Simulation (150ms ping) ENABLED. Network Interpolation active.", "#FF0000");
+                }
+                else
+                {
+                    transport.SetSimulatorParameters(
+                        delayMs: 0, 
+                        jitterMs: 0, 
+                        dropPercentage: 0, 
+                        maxPacketSize: 0);
+                    AddMessageToDisplay("[System]", "Artificial Lag Simulation DISABLED.", "#00FF00");
+                }
+            }
+            else
+            {
+                AddMessageToDisplay("[System]", "Error: UnityTransport not found.", "#FF0000");
             }
             isCommand = true;
         }
