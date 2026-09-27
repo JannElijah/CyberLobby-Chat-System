@@ -9,11 +9,13 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
     
     private Renderer[] renderers;
     private Color[] originalColors;
+    private Vector3 originalScale;
 
     private void Awake()
     {
         itemCollider = GetComponent<Collider>();
         rb = GetComponent<Rigidbody>();
+        originalScale = transform.localScale; // Remember the prefab's true scale!
 
         renderers = GetComponentsInChildren<Renderer>();
         originalColors = new Color[renderers.Length];
@@ -60,12 +62,38 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
             rb.isKinematic = isGrabbed;
         }
 
+        // Always restore the exact original scale when picking up
+        if (isGrabbed) transform.localScale = originalScale;
+
         // We disable the NetworkTransform entirely while grabbed so it doesn't fight the local parent.
         // The item will naturally follow the player's NetworkTransform over the network!
         var nt = GetComponent<Unity.Netcode.Components.NetworkTransform>();
         if (nt != null)
         {
             nt.enabled = !isGrabbed;
+        }
+    }
+    public void SetStoredState(Transform snapPoint, float scaleMultiplier)
+    {
+        // 1. Re-enable collider so it can be grabbed again
+        if (itemCollider != null) itemCollider.enabled = true;
+
+        // 2. Keep physics completely frozen so it stays perfectly on the shelf
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
+        }
+
+        // 3. Make it visually smaller to fit
+        transform.localScale = Vector3.one * scaleMultiplier;
+
+        // 4. Re-enable NetworkTransform so the clients see the scale and position change!
+        var nt = GetComponent<Unity.Netcode.Components.NetworkTransform>();
+        if (nt != null)
+        {
+            nt.enabled = true;
         }
     }
 }

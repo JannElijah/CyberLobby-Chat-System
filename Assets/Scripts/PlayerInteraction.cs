@@ -225,6 +225,14 @@ public class PlayerInteraction : NetworkBehaviour
         }
     }
 
+    public void ForceClearHandsServer()
+    {
+        if (IsServer)
+        {
+            carriedItemNetworkId.Value = 0;
+        }
+    }
+
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void TrashCarriedItemServerRpc()
     {
