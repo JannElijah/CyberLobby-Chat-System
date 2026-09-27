@@ -11,6 +11,8 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
     private Color[] originalColors;
     private Vector3 originalScale;
 
+    public bool isStored = false;
+
     private void Awake()
     {
         itemCollider = GetComponent<Collider>();
@@ -47,8 +49,10 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
     /// <summary>
     /// Called automatically by the player on all clients when this item is picked up or dropped.
     /// </summary>
-    public void SetGrabbedState(bool isGrabbed)
+    public void SetGrabbedState(bool isGrabbed, bool keepNetworkTransformDisabled = false)
     {
+        if (isGrabbed) isStored = false;
+
         // We disable the collider while carried so it doesn't bump the player 
         // or block our interaction raycasts!
         if (itemCollider != null)
@@ -70,19 +74,26 @@ public class GrabbableItem : NetworkBehaviour, IInteractable
         var nt = GetComponent<Unity.Netcode.Components.NetworkTransform>();
         if (nt != null)
         {
-            nt.enabled = !isGrabbed;
+            if (keepNetworkTransformDisabled)
+            {
+                nt.enabled = false;
+            }
+            else
+            {
+                nt.enabled = !isGrabbed;
+            }
         }
     }
     public void SetStoredState(Transform snapPoint, float scaleMultiplier)
     {
+        isStored = true;
+        
         // 1. Re-enable collider so it can be grabbed again
         if (itemCollider != null) itemCollider.enabled = true;
 
         // 2. Keep physics completely frozen so it stays perfectly on the shelf
         if (rb != null)
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
             rb.isKinematic = true;
         }
 

@@ -15,16 +15,26 @@ public class DeliveryManager : NetworkBehaviour
 
     public int boxesPerMorning = 3;
 
-    public override void OnNetworkSpawn()
+    private void Start()
     {
         if (IsServer)
         {
-            GameLoopManager.Instance.OnPhaseChanged += HandlePhaseChanged;
-            
-            if (GameLoopManager.Instance.CurrentPhase.Value == GamePhase.MorningPrep)
-            {
-                StartCoroutine(DeliverySequence());
-            }
+            StartCoroutine(WaitForGameLoopManager());
+        }
+    }
+
+    private System.Collections.IEnumerator WaitForGameLoopManager()
+    {
+        while (GameLoopManager.Instance == null)
+        {
+            yield return null;
+        }
+
+        GameLoopManager.Instance.OnPhaseChanged += HandlePhaseChanged;
+        
+        if (GameLoopManager.Instance.CurrentPhase.Value == GamePhase.MorningPrep)
+        {
+            StartCoroutine(DeliverySequence());
         }
     }
 

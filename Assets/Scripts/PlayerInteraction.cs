@@ -27,7 +27,7 @@ public class PlayerInteraction : NetworkBehaviour
     );
 
     // Track the physical object locally
-    private NetworkObject currentlyCarriedObject;
+    public NetworkObject currentlyCarriedObject { get; private set; }
     private GrabbableItem currentlyCarriedItemScript;
 
     private void Awake()
@@ -214,11 +214,11 @@ public class PlayerInteraction : NetworkBehaviour
     }
 
     // Added helper for client-side drop prediction (used by Trashcan)
-    public void ClearCarriedItemLocally()
+    public void ClearCarriedItemLocally(bool keepNetworkTransformDisabled = false)
     {
         if (currentlyCarriedItemScript != null)
         {
-            currentlyCarriedItemScript.SetGrabbedState(false);
+            currentlyCarriedItemScript.SetGrabbedState(false, keepNetworkTransformDisabled);
             animator.SetBool("IsCarrying", false);
             currentlyCarriedObject = null;
             currentlyCarriedItemScript = null;
@@ -282,7 +282,14 @@ public class PlayerInteraction : NetworkBehaviour
         // 1. Did we DROP a box?
         if (previousItemId != 0 && currentlyCarriedObject != null)
         {
-            currentlyCarriedItemScript?.SetGrabbedState(false); // Turn colliders back on
+            // Only turn NetworkTransform back on if it wasn't just stored on a shelf!
+            bool wasStored = false;
+            if (currentlyCarriedItemScript != null)
+            {
+                wasStored = currentlyCarriedItemScript.isStored;
+                currentlyCarriedItemScript.SetGrabbedState(false, wasStored);
+            }
+            
             currentlyCarriedObject = null;
             currentlyCarriedItemScript = null;
         }

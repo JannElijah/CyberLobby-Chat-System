@@ -4194,6 +4194,13 @@ MonoBehaviour:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
+  patienceTime: 15
+  currentState: 0
+  desiredProduct:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
 --- !u!1 &4533704276899902006
 GameObject:
   m_ObjectHideFlags: 0

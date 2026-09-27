@@ -3,6 +3,7 @@ using Unity.Netcode;
 using UnityEngine.AI;
 using Unity.Netcode.Components;
 using System;
+using TMPro;
 
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(NetworkObject))]
@@ -32,13 +33,16 @@ public class CustomerAI : NetworkBehaviour
     }
 
     [Header("Shopping AI Settings")]
-    public float patienceTime = 15f; // How long they wait at an empty shelf before getting angry
+    public float patienceTime = 15f; 
     private float patienceTimer;
     
     [Header("Debug Status (Read Only)")]
     public CustomerState currentState = CustomerState.Wandering;
-    public ProductType desiredProduct;
+    public NetworkVariable<ProductType> desiredProduct = new NetworkVariable<ProductType>(
+        writePerm: NetworkVariableWritePermission.Server
+    );
     private Shelf targetShelf;
+    private TextMeshProUGUI floatingText;
 
     private void Awake()
     {
@@ -48,6 +52,12 @@ public class CustomerAI : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        CreateSpeechBubble();
+        
+        // Listen for changes so late-joiners or updates instantly refresh the UI
+        desiredProduct.OnValueChanged += (oldVal, newVal) => UpdateSpeechBubble();
+        UpdateSpeechBubble();
+
         if (!IsServer)
         {
             agent.enabled = false; 
@@ -70,17 +80,65 @@ public class CustomerAI : NetworkBehaviour
         }
     }
 
+    private void CreateSpeechBubble()
+    {
+        // 1. Create a World Space Canvas
+        GameObject canvasObj = new GameObject("SpeechBubbleCanvas");
+        canvasObj.transform.SetParent(this.transform, false);
+        
+        Canvas canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        
+        RectTransform canvasRect = canvasObj.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(5, 2); // Physical size in the world
+        // Set localPosition on the RectTransform after Canvas creation to ensure it sticks
+        canvasRect.localPosition = new Vector3(0, 20f, 0);
+
+        // 2. Add the Billboard script to the Canvas
+        canvasObj.AddComponent<BillboardUI>();
+
+        // 3. Create the Text Object
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(canvasObj.transform, false);
+        
+        // Note: Using TextMeshProUGUI since it's on a Canvas now!
+        floatingText = textObj.AddComponent<TextMeshProUGUI>(); 
+        floatingText.alignment = TextAlignmentOptions.Center;
+        floatingText.fontSize = 2.5f; 
+        
+        // Let's make it a bright color with an outline so it pops
+        floatingText.color = new Color(0.96f, 0.92f, 0.84f, 1f); // Cream
+        
+        // Load our PawMart font
+        TMP_FontAsset pawmartFont = Resources.Load<TMP_FontAsset>("LilitaOne-Regular SDF");
+        if (pawmartFont != null) floatingText.font = pawmartFont;
+
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.sizeDelta = Vector2.zero;
+        textRect.anchoredPosition = Vector2.zero;
+    }
+
+    private void UpdateSpeechBubble()
+    {
+        if (floatingText != null)
+        {
+            floatingText.text = desiredProduct.Value.ToString();
+        }
+    }
+
     private void StartShoppingTrip()
     {
         // 1. Pick a random product they want to buy
         Array productTypes = Enum.GetValues(typeof(ProductType));
-        desiredProduct = (ProductType)productTypes.GetValue(UnityEngine.Random.Range(0, productTypes.Length));
+        desiredProduct.Value = (ProductType)productTypes.GetValue(UnityEngine.Random.Range(0, productTypes.Length));
         
         // 2. Find the shelf in the store that holds this product
         Shelf[] allShelves = FindObjectsByType<Shelf>(FindObjectsSortMode.None);
         foreach (Shelf shelf in allShelves)
         {
-            if (shelf.acceptedProductType == desiredProduct)
+            if (shelf.acceptedProductType == desiredProduct.Value)
             {
                 targetShelf = shelf;
                 break;
@@ -96,7 +154,7 @@ public class CustomerAI : NetworkBehaviour
         else
         {
             // No shelf for this item exists yet, just wander or leave
-            Debug.LogWarning($"[{gameObject.name}] Could not find shelf for {desiredProduct}");
+            Debug.LogWarning($"[{gameObject.name}] Could not find shelf for {desiredProduct.Value}");
             PickNewWanderTarget();
         }
     }
@@ -105,9 +163,19 @@ public class CustomerAI : NetworkBehaviour
     {
         if (!IsSpawned) return;
 
-        // Sync Animation
-        if (IsServer && agent.isOnNavMesh) syncSpeed.Value = agent.velocity.magnitude;
-        if (animator != null) animator.SetFloat("Speed", syncSpeed.Value);
+        // Sync Animation (Fallback to actual speed if NavMeshAgent gets confused)
+        if (IsServer) 
+        {
+            if (agent != null && agent.enabled && agent.isOnNavMesh) {
+                syncSpeed.Value = agent.velocity.magnitude;
+            } else {
+                syncSpeed.Value = 0f;
+            }
+        }
+        
+        if (animator != null) {
+            animator.SetFloat("Speed", syncSpeed.Value);
+        }
 
         if (!IsServer) return; // Only server handles logic
 
@@ -144,7 +212,7 @@ public class CustomerAI : NetworkBehaviour
             {
                 // Buy the item!
                 targetShelf.TakeItemServerRpc();
-                Debug.Log($"[{gameObject.name}] Successfully bought {desiredProduct}!");
+                Debug.Log($"[{gameObject.name}] Successfully bought {desiredProduct.Value}!");
                 
                 // For now, after they get the item, they just leave the store
                 LeaveStore();
@@ -168,7 +236,7 @@ public class CustomerAI : NetworkBehaviour
         if (targetShelf.currentStock.Value > 0)
         {
             targetShelf.TakeItemServerRpc();
-            Debug.Log($"[{gameObject.name}] Player restocked! Bought {desiredProduct}!");
+            Debug.Log($"[{gameObject.name}] Player restocked! Bought {desiredProduct.Value}!");
             LeaveStore();
             return;
         }
@@ -177,7 +245,7 @@ public class CustomerAI : NetworkBehaviour
         patienceTimer -= Time.deltaTime;
         if (patienceTimer <= 0)
         {
-            Debug.Log($"[{gameObject.name}] Got tired of waiting for {desiredProduct}. Leaving angry!");
+            Debug.Log($"[{gameObject.name}] Got tired of waiting for {desiredProduct.Value}. Leaving angry!");
             LeaveStore();
         }
     }
