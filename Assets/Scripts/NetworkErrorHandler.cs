@@ -117,7 +117,7 @@ public class NetworkErrorHandler : MonoBehaviour
         msgText.fontSize = 24;
         msgText.color = Color.white;
         msgText.alignment = TextAlignmentOptions.Center;
-        msgText.enableWordWrapping = true;
+        msgText.textWrappingMode = TextWrappingModes.Normal;
         RectTransform msgRect = msgObj.GetComponent<RectTransform>();
         msgRect.anchorMin = Vector2.zero;
         msgRect.anchorMax = new Vector2(1, 0.6f);

@@ -1,4 +1,4 @@
-# CyberLobby Grocery Co-Op 🛒🐿️
+# Pawmart Grocery Co-Op 🛒🐿️
 
 A frantic, top-down cooperative time-management and business simulation game built in Unity! Players take control of a Capybara and a Beaver as they team up to run a chaotic, rapidly expanding grocery store.
 
