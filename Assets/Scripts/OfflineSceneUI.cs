@@ -33,6 +33,24 @@ public class OfflineSceneUI : MonoBehaviour
     {
         SaveSettings();
         
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("No NetworkManager found in scene!");
+            return;
+        }
+
+        UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        if (transport != null)
+        {
+            transport.ConnectionData.ServerListenAddress = "0.0.0.0";
+            transport.ConnectionData.Address = "127.0.0.1";
+        }
+
+        if (NetworkManager.Singleton.IsListening)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
         if (NetworkManager.Singleton.StartHost())
         {
             // The server/host tells all clients to load the Lobby Scene together
@@ -40,7 +58,7 @@ public class OfflineSceneUI : MonoBehaviour
         }
         else
         {
-            Debug.LogError("Failed to start host.");
+            Debug.LogError("Failed to start host! If another game window or build is already hosting on port 7777, click 'JOIN GAME' on this window instead.");
         }
     }
 
