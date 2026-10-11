@@ -54,6 +54,11 @@ public class NetworkPingDisplay : MonoBehaviour
             ulong serverId = NetworkManager.ServerClientId;
             ulong rtt = NetworkManager.Singleton.NetworkConfig.NetworkTransport.GetCurrentRtt(serverId);
             
+            if (PlayerMovement.IsSimulatedLagEnabled)
+            {
+                rtt += (ulong)PlayerMovement.SimulatedRttMs;
+            }
+
             pingText.text = $"Ping: {rtt} ms";
             
             // Color code the ping dynamically!
@@ -63,9 +68,16 @@ public class NetworkPingDisplay : MonoBehaviour
         }
         else if (NetworkManager.Singleton.IsHost)
         {
-            // Host is the server, so ping is practically zero
-            pingText.text = "Ping: 0 ms (Host)";
-            pingText.color = new Color(0.4f, 1f, 0.4f);
+            if (PlayerMovement.IsSimulatedLagEnabled)
+            {
+                pingText.text = $"Ping: {PlayerMovement.SimulatedRttMs:F0} ms (Simulated)";
+                pingText.color = new Color(1f, 0.4f, 0.4f);
+            }
+            else
+            {
+                pingText.text = "Ping: 0 ms (Host)";
+                pingText.color = new Color(0.4f, 1f, 0.4f);
+            }
         }
         else
         {

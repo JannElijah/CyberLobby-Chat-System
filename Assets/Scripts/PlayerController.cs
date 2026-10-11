@@ -12,6 +12,15 @@ public class PlayerController : NetworkBehaviour
 
     private CharacterController characterController;
     private Animator animator;
+    private PlayerInput playerInput;
+
+    private struct DelayedInputEntry
+    {
+        public Vector2 input;
+        public float time;
+    }
+    private readonly System.Collections.Generic.Queue<DelayedInputEntry> delayedInputQueue = new System.Collections.Generic.Queue<DelayedInputEntry>();
+    private Vector2 currentDelayedInput = Vector2.zero;
 
     // Input actions defined programmatically for plug-and-play
     private InputAction moveAction;
@@ -28,6 +37,12 @@ public class PlayerController : NetworkBehaviour
     {
         characterController = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
+
+        playerInput = GetComponent<PlayerInput>();
+        if (playerInput == null)
+        {
+            playerInput = gameObject.AddComponent<PlayerInput>();
+        }
 
         // Create the move action programmatically
         moveAction = new InputAction("Move", InputActionType.Value);
@@ -91,8 +106,44 @@ public class PlayerController : NetworkBehaviour
                         UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null;
 
         // Read input from the new Input System only if not typing
-        Vector2 moveInput = isTyping ? Vector2.zero : moveAction.ReadValue<Vector2>();
-        Vector3 moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+        Vector2 rawInput = isTyping ? Vector2.zero : moveAction.ReadValue<Vector2>();
+
+        // Step 2 & 3: Input Command generation & buffer queuing
+        InputCommand cmd = playerInput.CreateInputCommand(Time.deltaTime);
+        playerInput.BufferCommand(cmd);
+
+        Vector2 effectiveInput = rawInput;
+
+        if (PlayerMovement.IsPredictionEnabled)
+        {
+            // Immediate Client Prediction: 0ms response time
+            PlayerMovement.LastInputResponseTimeMs = 0f;
+            effectiveInput = rawInput;
+            delayedInputQueue.Clear();
+            currentDelayedInput = rawInput;
+            playerInput.PruneAcknowledgedCommands(cmd.sequenceNumber);
+            PlayerMovement.LiveBufferQueueCount = playerInput.PendingCount;
+        }
+        else
+        {
+            // Baseline Server-Authoritative mode (Prediction OFF):
+            // Delayed by full 200ms round-trip delay to exhibit the sluggish input lag described in the lab
+            float delaySeconds = PlayerMovement.IsSimulatedLagEnabled ? (PlayerMovement.SimulatedRttMs / 1000f) : 0.2f;
+            PlayerMovement.LastInputResponseTimeMs = delaySeconds * 1000f;
+
+            delayedInputQueue.Enqueue(new DelayedInputEntry { input = rawInput, time = Time.time });
+
+            while (delayedInputQueue.Count > 0 && (Time.time - delayedInputQueue.Peek().time) >= delaySeconds)
+            {
+                currentDelayedInput = delayedInputQueue.Dequeue().input;
+            }
+
+            effectiveInput = currentDelayedInput;
+            playerInput.PruneAcknowledgedCommands(cmd.sequenceNumber - (uint)delayedInputQueue.Count);
+            PlayerMovement.LiveBufferQueueCount = delayedInputQueue.Count;
+        }
+
+        Vector3 moveDirection = new Vector3(effectiveInput.x, 0f, effectiveInput.y);
 
         // Apply gravity if not grounded (simple gravity for CharacterController)
         Vector3 velocity = moveDirection * moveSpeed;
@@ -113,7 +164,7 @@ public class PlayerController : NetworkBehaviour
 
         // Update the Animator "Speed" parameter
         // Using the input magnitude is much more reliable than characterController.velocity for top-down games!
-        animator.SetFloat("Speed", moveInput.magnitude);
+        animator.SetFloat("Speed", effectiveInput.magnitude);
     }
 
     private void ValidateMovement()
@@ -170,5 +221,21 @@ public class PlayerController : NetworkBehaviour
             transform.position = validPosition;
             characterController.enabled = true;
         }
+    }
+
+    /// <summary>
+    /// Simulates a temporary positional desync to test smooth reconciliation in real-time.
+    /// </summary>
+    public void SimulateDesyncBump(float driftAmount)
+    {
+        if (characterController != null)
+        {
+            characterController.enabled = false;
+            transform.position += transform.right * driftAmount;
+            characterController.enabled = true;
+        }
+
+        PlayerMovement.TotalReconciliations++;
+        PlayerMovement.LastReconciliationDrift = driftAmount;
     }
 }
